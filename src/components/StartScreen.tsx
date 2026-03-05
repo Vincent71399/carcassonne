@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import type { PlayerType } from '../engine/types';
 import { DEBUG_MODE } from '../engine/constants';
+import { TutorialModal } from './TutorialModal';
 
 interface StartScreenProps {
     onStartGame: (playerNames: Record<number, string>, playerTypes: Record<number, PlayerType>) => void;
@@ -18,6 +19,7 @@ const getRandomAiName = (existingNames: string[] = []) => {
 };
 
 export const StartScreen: React.FC<StartScreenProps> = ({ onStartGame }) => {
+    const [showTutorial, setShowTutorial] = useState(false);
     const [mode, setMode] = useState<'local' | 'online'>(() => {
         const saved = localStorage.getItem('carcassonne_mode');
         return (saved as 'local' | 'online') || 'local';
@@ -262,7 +264,29 @@ export const StartScreen: React.FC<StartScreenProps> = ({ onStartGame }) => {
                 >
                     Start Game
                 </button>
+
+                <button
+                    onClick={() => setShowTutorial(true)}
+                    style={{
+                        padding: '12px',
+                        borderRadius: '8px',
+                        border: '1px solid rgba(255,255,255,0.3)',
+                        background: 'rgba(255,255,255,0.1)',
+                        color: 'white',
+                        fontSize: '14px',
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        marginTop: '4px'
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+                >
+                    How to Play ❔
+                </button>
             </div>
+
+            {showTutorial && <TutorialModal onClose={() => setShowTutorial(false)} />}
 
             {/* Author Credit */}
             <div style={{
