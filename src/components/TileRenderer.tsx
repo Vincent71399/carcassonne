@@ -20,6 +20,7 @@ interface TileRendererProps {
     meeplePlacementMode?: boolean;
     disabledHotspots?: string[];
     onFeatureClick?: (featureId: string) => void;
+    animate?: boolean;
 }
 
 const EDGE_POSITIONS = {
@@ -39,7 +40,8 @@ export const TileRenderer: React.FC<TileRendererProps> = ({
     style = {},
     meeplePlacementMode = false,
     disabledHotspots = [],
-    onFeatureClick
+    onFeatureClick,
+    animate = true
 }) => {
     const [hoveredFeature, setHoveredFeature] = useState<string | null>(null);
 
@@ -238,7 +240,7 @@ export const TileRenderer: React.FC<TileRendererProps> = ({
                     borderRadius: '4px',
                     display: 'block',
                     transform: `rotate(${rotation * 90}deg)`,
-                    transition: 'transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1)'
+                    transition: animate ? 'transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1)' : 'none'
                 }}
             >
                 {/* Base Field */}
