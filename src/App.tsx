@@ -678,7 +678,7 @@ function App() {
 
       {/* Mobile/iPad Navigation Arrows */}
       {
-        useRetractableUI && !isHandExpanded && (!isScoreboardRetractable || !isScoreboardExpanded) && (
+        useRetractableUI && !isHandExpanded && gameState.turnPhase !== 'PlaceMeeple' && (!isScoreboardRetractable || !isScoreboardExpanded) && (
           <>
             {/* Top Arrow */}
             <button
@@ -705,10 +705,9 @@ function App() {
               onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleEndMove(); }}
               onTouchCancel={(e) => { e.preventDefault(); e.stopPropagation(); handleEndMove(); }}
               style={{
-                position: 'absolute', bottom: isHandExpanded ? 220 : 80, left: '50%', transform: 'translateX(-50%)',
+                position: 'absolute', bottom: 80, left: '50%', transform: 'translateX(-50%)',
                 width: 50, height: 50, borderRadius: '50%', background: 'rgba(255,255,255,0.8)',
                 border: 'none', fontSize: 24, boxShadow: '0 2px 8px rgba(0,0,0,0.2)', zIndex: 200, cursor: 'pointer',
-                transition: 'bottom 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center'
               }}
             >↓</button>
@@ -750,7 +749,7 @@ function App() {
 
       {/* Zoom/Hand-toggle Controls (Always visible on mobile/iPad) */}
       {
-        useRetractableUI && (
+        useRetractableUI && gameState.turnPhase !== 'PlaceMeeple' && (
           <div style={{
             position: 'absolute',
             bottom: isHandExpanded ? 210 : 90,
@@ -819,28 +818,31 @@ function App() {
             <div style={{
               position: 'absolute',
               bottom: 20,
-              left: '50%',
-              transform: 'translateX(-50%)',
+              left: isMobile ? 16 : '50%',
+              right: isMobile ? 16 : 'auto',
+              transform: isMobile ? 'none' : 'translateX(-50%)',
               backgroundColor: 'rgba(255,255,255,0.95)',
-              padding: '12px 24px',
-              borderRadius: '12px',
-              boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
+              padding: '16px',
+              borderRadius: isMobile ? '16px' : '12px',
+              boxShadow: '0 4px 24px rgba(0,0,0,0.2)',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
-              gap: '8px',
+              gap: '12px',
               zIndex: 100,
+              boxSizing: 'border-box'
             }}>
               <span style={{ fontWeight: 'bold', color: hasNoMeeples ? '#c62828' : '#333', fontSize: '14px' }}>
                 {hasNoMeeples
                   ? `Player ${currentPlayer} has no meeples remaining`
                   : `Click a spot on the tile to place a meeple`}
               </span>
-              <div style={{ display: 'flex', gap: '10px' }}>
+              <div style={{ display: 'flex', gap: '10px', width: isMobile ? '100%' : 'auto' }}>
                 <button
                   onClick={handleCancelPlacement}
                   style={{
-                    padding: '8px 20px',
+                    flex: isMobile ? 1 : 'none',
+                    padding: '10px 20px',
                     backgroundColor: 'transparent',
                     color: UI_COLORS.danger,
                     border: `2px solid ${UI_COLORS.dangerLight}`,
@@ -855,7 +857,8 @@ function App() {
                 <button
                   onClick={handleSkipMeeple}
                   style={{
-                    padding: '8px 20px',
+                    flex: isMobile ? 1 : 'none',
+                    padding: '10px 20px',
                     backgroundColor: hasNoMeeples ? UI_COLORS.primary : 'transparent',
                     color: hasNoMeeples ? '#fff' : '#888',
                     border: hasNoMeeples ? `2px solid ${UI_COLORS.primary}` : '2px solid #ccc',
@@ -1244,101 +1247,105 @@ function App() {
       </button>
 
       {/* Fullscreen Button */}
-      {!isFullscreen && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            handleToggleFullscreen();
-          }}
-          style={{
-            position: 'absolute',
-            top: 20,
-            right: 74,
-            zIndex: 3000,
-            background: 'rgba(0,0,0,0.08)',
-            border: 'none',
-            borderRadius: 6,
-            cursor: 'pointer',
-            padding: '8px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            transition: 'all 0.2s',
-            width: 44,
-            height: 44,
-            pointerEvents: 'auto'
-          }}
-          title="Enter Fullscreen"
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M15 3h6v6M9 21H3v-6M21 15v6h-6M3 9V3h6" />
-          </svg>
-        </button>
-      )}
+      {
+        !isFullscreen && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleToggleFullscreen();
+            }}
+            style={{
+              position: 'absolute',
+              top: 20,
+              right: 74,
+              zIndex: 3000,
+              background: 'rgba(0,0,0,0.08)',
+              border: 'none',
+              borderRadius: 6,
+              cursor: 'pointer',
+              padding: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.2s',
+              width: 44,
+              height: 44,
+              pointerEvents: 'auto'
+            }}
+            title="Enter Fullscreen"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M15 3h6v6M9 21H3v-6M21 15v6h-6M3 9V3h6" />
+            </svg>
+          </button>
+        )
+      }
 
       {/* Custom Quit Confirmation Modal */}
-      {showQuitConfirm && (
-        <div style={{
-          position: 'fixed', inset: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.85)',
-          backdropFilter: 'blur(8px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          zIndex: 10000,
-          animation: 'fadeIn 0.3s ease-out'
-        }}>
+      {
+        showQuitConfirm && (
           <div style={{
-            background: 'linear-gradient(135deg, #2c3e50 0%, #34495e 100%)',
-            width: isMobile ? '100vw' : '400px',
-            borderRadius: isMobile ? '0px' : '24px',
-            padding: '32px',
-            color: 'white',
-            boxShadow: '0 20px 50px rgba(0,0,0,0.5)',
-            display: 'flex', flexDirection: 'column', gap: '24px',
-            border: '1px solid rgba(255,255,255,0.1)',
-            textAlign: 'center'
+            position: 'fixed', inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.85)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 10000,
+            animation: 'fadeIn 0.3s ease-out'
           }}>
-            <div style={{ fontSize: '48px' }}>🏰</div>
-            <h2 style={{ margin: 0, fontSize: '24px', color: '#f1c40f', textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}>
-              Quit Game?
-            </h2>
-            <p style={{ margin: 0, lineHeight: '1.5', color: '#ecf0f1', fontSize: '16px' }}>
-              Are you sure you want to leave the current game? All progress will be lost.
-            </p>
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <button
-                onClick={() => setShowQuitConfirm(false)}
-                style={{
-                  flex: 1, padding: '12px', borderRadius: '10px',
-                  background: 'rgba(255,255,255,0.1)', color: 'white',
-                  border: '1px solid rgba(255,255,255,0.2)',
-                  cursor: 'pointer', fontWeight: 'bold'
-                }}
-              >
-                Stay
-              </button>
-              <button
-                onClick={() => {
-                  setShowQuitConfirm(false);
-                  setGameState(null);
-                  setSelectedHandIndex(-1);
-                  setRotation(0);
-                  setShowDeckViewer(false);
-                  setShowBoardPostGame(false);
-                }}
-                style={{
-                  flex: 1, padding: '12px', borderRadius: '10px',
-                  background: '#e74c3c', color: 'white', border: 'none',
-                  cursor: 'pointer', fontWeight: 'bold',
-                  boxShadow: '0 4px 15px rgba(231, 76, 60, 0.3)'
-                }}
-              >
-                Quit
-              </button>
+            <div style={{
+              background: 'linear-gradient(135deg, #2c3e50 0%, #34495e 100%)',
+              width: isMobile ? '100vw' : '400px',
+              borderRadius: isMobile ? '0px' : '24px',
+              padding: '32px',
+              color: 'white',
+              boxShadow: '0 20px 50px rgba(0,0,0,0.5)',
+              display: 'flex', flexDirection: 'column', gap: '24px',
+              border: '1px solid rgba(255,255,255,0.1)',
+              textAlign: 'center'
+            }}>
+              <div style={{ fontSize: '48px' }}>🏰</div>
+              <h2 style={{ margin: 0, fontSize: '24px', color: '#f1c40f', textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}>
+                Quit Game?
+              </h2>
+              <p style={{ margin: 0, lineHeight: '1.5', color: '#ecf0f1', fontSize: '16px' }}>
+                Are you sure you want to leave the current game? All progress will be lost.
+              </p>
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button
+                  onClick={() => setShowQuitConfirm(false)}
+                  style={{
+                    flex: 1, padding: '12px', borderRadius: '10px',
+                    background: 'rgba(255,255,255,0.1)', color: 'white',
+                    border: '1px solid rgba(255,255,255,0.2)',
+                    cursor: 'pointer', fontWeight: 'bold'
+                  }}
+                >
+                  Stay
+                </button>
+                <button
+                  onClick={() => {
+                    setShowQuitConfirm(false);
+                    setGameState(null);
+                    setSelectedHandIndex(-1);
+                    setRotation(0);
+                    setShowDeckViewer(false);
+                    setShowBoardPostGame(false);
+                  }}
+                  style={{
+                    flex: 1, padding: '12px', borderRadius: '10px',
+                    background: '#e74c3c', color: 'white', border: 'none',
+                    cursor: 'pointer', fontWeight: 'bold',
+                    boxShadow: '0 4px 15px rgba(231, 76, 60, 0.3)'
+                  }}
+                >
+                  Quit
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-    </div >
+        )
+      }
+    </div>
   );
 }
 
