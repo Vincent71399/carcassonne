@@ -109,12 +109,12 @@ export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame 
                 padding: isMobile ? '20px' : '40px',
                 borderRadius: isMobile ? '0px' : '16px',
                 boxShadow: isMobile ? 'none' : '0 8px 32px rgba(0,0,0,0.3)',
-                width: isMobile ? '100vw' : '400px',
+                width: isMobile ? '100vw' : '480px',
                 height: isMobile ? '100vh' : 'auto',
-                maxWidth: isMobile ? '100vw' : '400px',
+                maxWidth: isMobile ? '100vw' : '480px',
                 maxHeight: isMobile ? '100vh' : 'auto',
                 display: 'flex', flexDirection: 'column', gap: '24px',
-                boxSizing: isMobile ? 'border-box' : 'content-box',
+                boxSizing: 'border-box',
                 justifyContent: isMobile ? 'center' : 'flex-start'
             }}>
                 <h1 style={{ margin: 0, textAlign: 'center', fontSize: '36px', fontWeight: 'bold', textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}>
@@ -239,7 +239,8 @@ export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame 
                                                 background: 'rgba(0,0,0,0.3)',
                                                 color: 'white',
                                                 outline: 'none',
-                                                fontSize: '16px'
+                                                fontSize: '16px',
+                                                width: '100%'
                                             }}
                                         />
                                     </div>
@@ -262,7 +263,8 @@ export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame 
                         cursor: 'pointer',
                         boxShadow: '0 4px 15px rgba(46, 204, 113, 0.4)',
                         transition: 'transform 0.1s, box-shadow 0.1s',
-                        marginTop: '10px'
+                        marginTop: '10px',
+                        width: '100%'
                     }}
                     onMouseDown={e => e.currentTarget.style.transform = 'scale(0.98)'}
                     onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
