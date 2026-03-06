@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Board } from './components/Board';
 import { Hand } from './components/Hand';
 import { DeckViewer } from './components/DeckViewer';
@@ -81,6 +81,79 @@ function App() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [windowSize, setWindowSize] = useState({ width: typeof window !== 'undefined' ? window.innerWidth : 1200, height: typeof window !== 'undefined' ? window.innerHeight : 800 });
+
+  const lastStateRef = useRef({ gameState, zoom, windowSize });
+  useEffect(() => {
+    lastStateRef.current = { gameState, zoom, windowSize };
+  }, [gameState, zoom, windowSize]);
+
+  const clampPan = (newPan: { x: number, y: number }) => {
+    const { gameState: gState, zoom: curZoom, windowSize: wSize } = lastStateRef.current;
+    if (!gState) return newPan;
+    const tiles = Object.values(gState.board);
+    if (tiles.length === 0) return newPan;
+
+    const minX = Math.min(...tiles.map(t => t.x));
+    const maxX = Math.max(...tiles.map(t => t.x));
+    const minY = Math.min(...tiles.map(t => t.y));
+    const maxY = Math.max(...tiles.map(t => t.y));
+
+    const halfW = wSize.width / 2;
+    const halfH = wSize.height / 2;
+    const overlap = 50;
+
+    const limitXMin = overlap - halfW - (maxX * 100 + 50) * curZoom;
+    const limitXMax = halfW - overlap - (minX * 100 - 50) * curZoom;
+    const limitYMin = overlap - halfH - (maxY * 100 + 50) * curZoom;
+    const limitYMax = halfH - overlap - (minY * 100 - 50) * curZoom;
+
+    return {
+      x: Math.min(Math.max(newPan.x, limitXMin), limitXMax),
+      y: Math.min(Math.max(newPan.y, limitYMin), limitYMax)
+    };
+  };
+
+  const moveIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const handleStartMove = (dx: number, dy: number) => {
+    if (moveIntervalRef.current) clearInterval(moveIntervalRef.current);
+
+    // Initial move
+    setPan(p => clampPan({ x: p.x + dx, y: p.y + dy }));
+
+    // Continuous move
+    moveIntervalRef.current = setInterval(() => {
+      setPan(p => clampPan({ x: p.x + dx * 0.2 * (2 / 3), y: p.y + dy * 0.2 * (2 / 3) }));
+    }, 30);
+  };
+
+  const handleEndMove = () => {
+    if (moveIntervalRef.current) {
+      clearInterval(moveIntervalRef.current);
+      moveIntervalRef.current = null;
+    }
+  };
+
+  const zoomIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const handleStartZoom = (factor: number) => {
+    if (zoomIntervalRef.current) clearInterval(zoomIntervalRef.current);
+
+    setZoom(z => Math.min(Math.max(z * factor, 0.3), 3));
+
+    zoomIntervalRef.current = setInterval(() => {
+      // Use a smaller factor for smoother continuous zoom
+      const continuousFactor = factor > 1 ? 1.02 : 1 / 1.02;
+      setZoom(z => Math.min(Math.max(z * continuousFactor, 0.3), 3));
+    }, 30);
+  };
+
+  const handleEndZoom = () => {
+    if (zoomIntervalRef.current) {
+      clearInterval(zoomIntervalRef.current);
+      zoomIntervalRef.current = null;
+    }
+  };
 
 
   useEffect(() => {
@@ -271,32 +344,11 @@ function App() {
 
   // Centralized Board Boundary Enforcement
   useEffect(() => {
-    if (!gameState) return;
-    const tiles = Object.values(gameState.board);
-    if (tiles.length === 0) return;
-
-    const minX = Math.min(...tiles.map(t => t.x));
-    const maxX = Math.max(...tiles.map(t => t.x));
-    const minY = Math.min(...tiles.map(t => t.y));
-    const maxY = Math.max(...tiles.map(t => t.y));
-
-    const halfW = windowSize.width / 2;
-    const halfH = windowSize.height / 2;
-    const overlap = 50; // Keep at least 50px of the board on screen
-
-    // Tile size is 100x100. Tile (x,y) screen pos is halfW + pan + (coord * zoom)
-    // Local tile bounds are [coord*100-50, coord*100+50] due to Board.tsx centering
-    const limitXMin = overlap - halfW - (maxX * 100 + 50) * zoom;
-    const limitXMax = halfW - overlap - (minX * 100 - 50) * zoom;
-    const limitYMin = overlap - halfH - (maxY * 100 + 50) * zoom;
-    const limitYMax = halfH - overlap - (minY * 100 - 50) * zoom;
-
     requestAnimationFrame(() => {
       setPan(prevPan => {
-        const clampedX = Math.min(Math.max(prevPan.x, limitXMin), limitXMax);
-        const clampedY = Math.min(Math.max(prevPan.y, limitYMin), limitYMax);
-        if (clampedX !== prevPan.x || clampedY !== prevPan.y) {
-          return { x: clampedX, y: clampedY };
+        const clamped = clampPan(prevPan);
+        if (clamped.x !== prevPan.x || clamped.y !== prevPan.y) {
+          return clamped;
         }
         return prevPan;
       });
@@ -630,7 +682,12 @@ function App() {
           <>
             {/* Top Arrow */}
             <button
-              onClick={(e) => { e.stopPropagation(); setPan(p => ({ ...p, y: p.y + 100 })); }}
+              onMouseDown={(e) => { e.stopPropagation(); handleStartMove(0, 100); }}
+              onMouseUp={(e) => { e.stopPropagation(); handleEndMove(); }}
+              onMouseLeave={(e) => { e.stopPropagation(); handleEndMove(); }}
+              onTouchStart={(e) => { e.preventDefault(); e.stopPropagation(); handleStartMove(0, 100); }}
+              onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleEndMove(); }}
+              onTouchCancel={(e) => { e.preventDefault(); e.stopPropagation(); handleEndMove(); }}
               style={{
                 position: 'absolute', top: 80, left: '50%', transform: 'translateX(-50%)',
                 width: 50, height: 50, borderRadius: '50%', background: 'rgba(255,255,255,0.8)',
@@ -641,7 +698,12 @@ function App() {
 
             {/* Bottom Arrow */}
             <button
-              onClick={(e) => { e.stopPropagation(); setPan(p => ({ ...p, y: p.y - 100 })); }}
+              onMouseDown={(e) => { e.stopPropagation(); handleStartMove(0, -100); }}
+              onMouseUp={(e) => { e.stopPropagation(); handleEndMove(); }}
+              onMouseLeave={(e) => { e.stopPropagation(); handleEndMove(); }}
+              onTouchStart={(e) => { e.preventDefault(); e.stopPropagation(); handleStartMove(0, -100); }}
+              onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleEndMove(); }}
+              onTouchCancel={(e) => { e.preventDefault(); e.stopPropagation(); handleEndMove(); }}
               style={{
                 position: 'absolute', bottom: isHandExpanded ? 220 : 80, left: '50%', transform: 'translateX(-50%)',
                 width: 50, height: 50, borderRadius: '50%', background: 'rgba(255,255,255,0.8)',
@@ -653,7 +715,12 @@ function App() {
 
             {/* Left Arrow */}
             <button
-              onClick={(e) => { e.stopPropagation(); setPan(p => ({ ...p, x: p.x + 100 })); }}
+              onMouseDown={(e) => { e.stopPropagation(); handleStartMove(100, 0); }}
+              onMouseUp={(e) => { e.stopPropagation(); handleEndMove(); }}
+              onMouseLeave={(e) => { e.stopPropagation(); handleEndMove(); }}
+              onTouchStart={(e) => { e.preventDefault(); e.stopPropagation(); handleStartMove(100, 0); }}
+              onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleEndMove(); }}
+              onTouchCancel={(e) => { e.preventDefault(); e.stopPropagation(); handleEndMove(); }}
               style={{
                 position: 'absolute', top: '50%', left: 10, transform: 'translateY(-50%)',
                 width: 50, height: 50, borderRadius: '50%', background: 'rgba(255,255,255,0.8)',
@@ -664,7 +731,12 @@ function App() {
 
             {/* Right Arrow */}
             <button
-              onClick={(e) => { e.stopPropagation(); setPan(p => ({ ...p, x: p.x - 100 })); }}
+              onMouseDown={(e) => { e.stopPropagation(); handleStartMove(-100, 0); }}
+              onMouseUp={(e) => { e.stopPropagation(); handleEndMove(); }}
+              onMouseLeave={(e) => { e.stopPropagation(); handleEndMove(); }}
+              onTouchStart={(e) => { e.preventDefault(); e.stopPropagation(); handleStartMove(-100, 0); }}
+              onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleEndMove(); }}
+              onTouchCancel={(e) => { e.preventDefault(); e.stopPropagation(); handleEndMove(); }}
               style={{
                 position: 'absolute', top: '50%', right: 10, transform: 'translateY(-50%)',
                 width: 50, height: 50, borderRadius: '50%', background: 'rgba(255,255,255,0.8)',
@@ -693,7 +765,12 @@ function App() {
             {(isMobile ? (!isScoreboardExpanded && !isHandExpanded) : (isIPad && !isHandExpanded)) && (
               <>
                 <button
-                  onClick={(e) => { e.stopPropagation(); setZoom(z => Math.min(z * 1.2, 3)); }}
+                  onMouseDown={(e) => { e.stopPropagation(); handleStartZoom(1.2); }}
+                  onMouseUp={(e) => { e.stopPropagation(); handleEndZoom(); }}
+                  onMouseLeave={(e) => { e.stopPropagation(); handleEndZoom(); }}
+                  onTouchStart={(e) => { e.preventDefault(); e.stopPropagation(); handleStartZoom(1.2); }}
+                  onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleEndZoom(); }}
+                  onTouchCancel={(e) => { e.preventDefault(); e.stopPropagation(); handleEndZoom(); }}
                   style={{
                     width: 54, height: 54, borderRadius: '50%', background: 'white',
                     border: 'none', fontSize: 24, fontWeight: 'bold', boxShadow: '0 2px 12px rgba(0,0,0,0.3)',
@@ -701,7 +778,12 @@ function App() {
                   }}
                 >+</button>
                 <button
-                  onClick={(e) => { e.stopPropagation(); setZoom(z => Math.max(z * 0.8, 0.3)); }}
+                  onMouseDown={(e) => { e.stopPropagation(); handleStartZoom(0.8); }}
+                  onMouseUp={(e) => { e.stopPropagation(); handleEndZoom(); }}
+                  onMouseLeave={(e) => { e.stopPropagation(); handleEndZoom(); }}
+                  onTouchStart={(e) => { e.preventDefault(); e.stopPropagation(); handleStartZoom(0.8); }}
+                  onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleEndZoom(); }}
+                  onTouchCancel={(e) => { e.preventDefault(); e.stopPropagation(); handleEndZoom(); }}
                   style={{
                     width: 54, height: 54, borderRadius: '50%', background: 'white',
                     border: 'none', fontSize: 24, fontWeight: 'bold', boxShadow: '0 2px 12px rgba(0,0,0,0.3)',
