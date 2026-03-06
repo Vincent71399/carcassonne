@@ -57,9 +57,11 @@ function App() {
   const [rotation, setRotation] = useState(0);
   const [prePlacementState, setPrePlacementState] = useState<GameState | null>(null);
 
-  // Layout states for mobile
-  const [isScoreboardExpanded, setIsScoreboardExpanded] = useState(!isMobile);
-  const [isHandExpanded, setIsHandExpanded] = useState(!isMobile);
+  // Layout states for mobile/iPad
+  const [isIPad, setIsIPad] = useState(typeof window !== 'undefined' ? (/Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 0) : false);
+  const useRetractableUI = isMobile || isIPad;
+  const [isScoreboardExpanded, setIsScoreboardExpanded] = useState(!isMobile && !isIPad);
+  const [isHandExpanded, setIsHandExpanded] = useState(!isMobile && !isIPad);
 
   // Board position and zoom (moved from Board.tsx)
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -86,20 +88,31 @@ function App() {
 
   // Update expanded states and isMobile when window resizes
   useEffect(() => {
+    const checkIPad = () => /Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 0;
+
     let prevMobile = typeof window !== 'undefined' ? window.innerWidth < 768 : false;
+    let prevIPad = checkIPad();
+
     const handleResize = () => {
       const mobile = window.innerWidth < 768;
+      const iPad = checkIPad();
+      const currentRetractable = mobile || iPad;
+      const prevRetractable = prevMobile || prevIPad;
+
       setIsMobile(mobile);
+      setIsIPad(iPad);
       setWindowSize({ width: window.innerWidth, height: window.innerHeight });
-      if (!mobile) {
+
+      if (!currentRetractable) {
         setIsScoreboardExpanded(true);
         setIsHandExpanded(true);
-      } else if (!prevMobile) {
-        // Just switched to mobile, collapse panels
+      } else if (!prevRetractable) {
+        // Just switched to mobile/iPad, collapse panels
         setIsScoreboardExpanded(false);
         setIsHandExpanded(false);
       }
       prevMobile = mobile;
+      prevIPad = iPad;
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
@@ -107,7 +120,6 @@ function App() {
 
   // Fullscreen effect for mobile/iPad
   useEffect(() => {
-    const isIPad = /Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 0;
     const isMobileOrIPad = isMobile || isIPad;
 
     if (isMobileOrIPad) {
@@ -136,7 +148,7 @@ function App() {
         }
       }
     }
-  }, [gameState, isMobile]);
+  }, [gameState, isMobile, isIPad]);
 
   // Track fullscreen state
   useEffect(() => {
@@ -410,7 +422,7 @@ function App() {
     <div
       style={{ width: '100vw', height: '100vh', overflow: 'hidden', margin: 0, padding: 0, position: 'relative' }}
       onClick={() => {
-        if (isMobile && gameState.turnPhase !== 'PlaceTile' && gameState.turnPhase !== 'PlaceMeeple') {
+        if (useRetractableUI && gameState.turnPhase !== 'PlaceTile' && gameState.turnPhase !== 'PlaceMeeple') {
           setIsScoreboardExpanded(false);
           setIsHandExpanded(false);
         }
@@ -419,8 +431,8 @@ function App() {
       <style>{SCORING_CSS}</style>
 
 
-      {/* Scoreboard Toggle (Mobile) */}
-      {isMobile && (
+      {/* Scoreboard Toggle (Mobile/iPad) */}
+      {useRetractableUI && (
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -456,7 +468,7 @@ function App() {
         onClick={(e) => e.stopPropagation()}
         style={{
           position: 'absolute',
-          top: isMobile ? 60 : 20,
+          top: useRetractableUI ? 60 : 20,
           left: 20,
           backgroundColor: 'rgba(255,255,255,0.95)',
           padding: '16px',
@@ -465,10 +477,10 @@ function App() {
           zIndex: 50,
           fontFamily: 'sans-serif',
           minWidth: '200px',
-          transition: isMobile ? 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)' : 'none',
-          transform: isMobile && !isScoreboardExpanded ? 'translateX(-120%)' : 'translateX(0)',
-          maxHeight: isMobile ? '70vh' : 'none',
-          overflowY: isMobile ? 'auto' : 'visible'
+          transition: useRetractableUI ? 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)' : 'none',
+          transform: useRetractableUI && !isScoreboardExpanded ? 'translateX(-120%)' : 'translateX(0)',
+          maxHeight: useRetractableUI ? '70vh' : 'none',
+          overflowY: useRetractableUI ? 'auto' : 'visible'
         }}>
         <h3 style={{ margin: '0 0 10px 0', color: '#333', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px' }}>
           <span>Scoreboard</span>
@@ -611,9 +623,9 @@ function App() {
         onFeatureClick={handlePlaceMeeple}
       />
 
-      {/* Mobile Navigation Buttons */}
+      {/* Mobile/iPad Navigation Buttons */}
       {
-        isMobile && !isScoreboardExpanded && !isHandExpanded && (
+        useRetractableUI && !isScoreboardExpanded && !isHandExpanded && (
           <>
             {/* Top Arrow */}
             <button
@@ -773,7 +785,7 @@ function App() {
       {
         gameState.turnPhase !== 'PlaceMeeple' && gameState.turnPhase !== 'GameOver' && gameState.playerTypes[currentPlayer] === 'human' && (
           <>
-            {isMobile && (
+            {useRetractableUI && (
               <div style={{ display: 'none' }} />
             )}
             <div
@@ -784,9 +796,9 @@ function App() {
                 left: 0,
                 right: 0,
                 zIndex: 300,
-                transition: isMobile ? 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)' : 'none',
-                transform: isMobile && !isHandExpanded ? 'translateY(110%)' : 'translateY(0)',
-                pointerEvents: isMobile && !isHandExpanded ? 'none' : 'auto'
+                transition: useRetractableUI ? 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)' : 'none',
+                transform: useRetractableUI && !isHandExpanded ? 'translateY(110%)' : 'translateY(0)',
+                pointerEvents: useRetractableUI && !isHandExpanded ? 'none' : 'auto'
               }}>
               <Hand
                 state={gameState}
@@ -799,7 +811,7 @@ function App() {
                   setRotation(0);
                 }}
                 onRotate={() => setRotation(r => (r + 1) % 4)}
-                isMobile={isMobile}
+                isMobile={useRetractableUI}
               />
             </div>
           </>
