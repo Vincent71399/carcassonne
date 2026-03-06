@@ -187,7 +187,7 @@ function _startEndGameQueue(state: GameState) {
     _serveQueue(state, queue, true /* endGameMode */);
 }
 
-function _advanceTurn(state: GameState) {
+export function advanceTurn(state: GameState) {
     const playerId = state.players[state.currentPlayerIndex];
     if (state.deck.length > 0 && state.hands[playerId].length < 3) drawTile(state, playerId);
 
@@ -211,7 +211,16 @@ export function endTurn(state: GameState, _playerId: PlayerId) {
         return;
     }
 
-    _advanceTurn(state);
+    // Only delay if the NEXT player is an AI
+    const nextPlayerIndex = (state.currentPlayerIndex + 1) % state.players.length;
+    const nextPlayerId = state.players[nextPlayerIndex];
+    const isNextAI = state.playerTypes[nextPlayerId] !== 'human';
+
+    if (isNextAI) {
+        state.turnPhase = 'WaitingNextTurn';
+    } else {
+        advanceTurn(state);
+    }
 }
 
 export function finishScoring(state: GameState) {
@@ -236,5 +245,5 @@ export function finishScoring(state: GameState) {
     }
 
     // Mid-game scoring complete → advance turn
-    _advanceTurn(state);
+    advanceTurn(state);
 }

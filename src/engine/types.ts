@@ -70,7 +70,7 @@ export interface ScoreUpdate {
     completedComponentIds: string[]; // "x,y,featureId"
 }
 
-export type TurnPhase = 'PlaceTile' | 'PlaceMeeple' | 'Score' | 'GameOver';
+export type TurnPhase = 'PlaceTile' | 'PlaceMeeple' | 'Score' | 'WaitingNextTurn' | 'GameOver';
 
 export interface GameState {
     players: PlayerId[]; // The sequence of player turns

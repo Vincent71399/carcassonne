@@ -1,4 +1,4 @@
-import { createInitialState, placeTile, placeMeeple, skipMeeple, finishScoring } from './state';
+import { createInitialState, placeTile, placeMeeple, skipMeeple, finishScoring, advanceTurn } from './state';
 import { calculateBestAIMove } from './ai';
 import type { PlayerType } from './types';
 
@@ -40,6 +40,8 @@ async function runMatch(types: Record<number, PlayerType>, names: Record<number,
                 skipMeeple(state, currentPlayer);
             }
             (state as any).pendingMeepleMove = null;
+        } else if (state.turnPhase === 'WaitingNextTurn') {
+            advanceTurn(state);
         } else if (state.endGameMode) {
             while (state.turnPhase === 'Score') {
                 finishScoring(state);

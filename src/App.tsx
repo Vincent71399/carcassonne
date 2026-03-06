@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Board } from './components/Board';
 import { Hand } from './components/Hand';
 import { DeckViewer } from './components/DeckViewer';
-import { createInitialState, placeTile, placeMeeple, skipMeeple, finishScoring } from './engine/state';
+import { createInitialState, placeTile, placeMeeple, skipMeeple, finishScoring, advanceTurn } from './engine/state';
 import { calculateBestAIMove } from './engine/ai';
 import { PLAYER_COLORS, FEATURE_COLORS, UI_COLORS, DEBUG_MODE } from './engine/constants';
 import type { GameState } from './engine/types';
@@ -112,6 +112,21 @@ function App() {
       return () => clearTimeout(timer);
     }
   }, [gameState?.scoreUpdateKey]); // Re-fires for EVERY new pop-up (key increments per served update)
+
+  // Turn Change Delay (if no scoring occurred)
+  useEffect(() => {
+    if (gameState?.turnPhase === 'WaitingNextTurn') {
+      const timer = setTimeout(() => {
+        setGameState(prevState => {
+          if (!prevState) return prevState;
+          const newState = JSON.parse(JSON.stringify(prevState));
+          advanceTurn(newState);
+          return newState;
+        });
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [gameState?.turnPhase]);
 
   // AI Game Loop execution
   useEffect(() => {
