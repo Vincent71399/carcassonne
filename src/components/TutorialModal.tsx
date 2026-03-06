@@ -3,6 +3,7 @@ import { TutorialScene } from './TutorialScene';
 import type { PlayerId, PlacedTile } from '../engine/types';
 
 interface TutorialModalProps {
+    isMobile: boolean;
     onClose: () => void;
 }
 
@@ -112,7 +113,7 @@ const STEPS: StepDefinition[] = [
     }
 ];
 
-export const TutorialModal: React.FC<TutorialModalProps> = ({ onClose }) => {
+export const TutorialModal: React.FC<TutorialModalProps> = ({ isMobile, onClose }) => {
     const [currentStep, setCurrentStep] = useState(0);
     const step = STEPS[currentStep];
 
@@ -145,14 +146,17 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({ onClose }) => {
         }}>
             <div style={{
                 background: 'linear-gradient(135deg, #2c3e50 0%, #34495e 100%)',
-                width: 'min(600px, 95vw)',
-                borderRadius: '24px',
-                padding: '32px',
+                width: isMobile ? '100vw' : 'min(600px, 95vw)',
+                height: isMobile ? '100vh' : 'auto',
+                borderRadius: isMobile ? '0px' : '24px',
+                padding: isMobile ? '24px' : '32px',
                 color: 'white',
-                boxShadow: '0 20px 50px rgba(0,0,0,0.5)',
+                boxShadow: isMobile ? 'none' : '0 20px 50px rgba(0,0,0,0.5)',
                 position: 'relative',
                 display: 'flex', flexDirection: 'column', gap: '20px',
-                border: '1px solid rgba(255,255,255,0.1)'
+                border: isMobile ? 'none' : '1px solid rgba(255,255,255,0.1)',
+                boxSizing: isMobile ? 'border-box' : 'content-box',
+                justifyContent: isMobile ? 'center' : 'unset'
             }}>
                 <button
                     onClick={onClose}
@@ -173,6 +177,7 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({ onClose }) => {
                         {...step.scene}
                         fieldConquest={fieldConquestMap}
                         size={380}
+                        isMobile={isMobile}
                     />
                 </div>
 

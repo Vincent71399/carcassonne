@@ -13,6 +13,7 @@ interface HandProps {
     currentRotation: number;
     onSelect: (index: number) => void;
     onRotate: () => void;
+    isMobile?: boolean;
 }
 
 export const Hand: React.FC<HandProps> = ({
@@ -22,7 +23,8 @@ export const Hand: React.FC<HandProps> = ({
     selectedIndex,
     currentRotation,
     onSelect,
-    onRotate
+    onRotate,
+    isMobile = false
 }) => {
     const hand = state.hands[playerId] || [];
     const selectedTile = selectedIndex !== -1 ? hand[selectedIndex] : null;
@@ -33,19 +35,21 @@ export const Hand: React.FC<HandProps> = ({
 
     return (
         <div style={{
-            position: 'absolute',
-            bottom: 20,
-            left: '50%',
-            transform: 'translateX(-50%)',
+            position: isMobile ? 'relative' : 'absolute',
+            bottom: isMobile ? 0 : 20,
+            left: isMobile ? 'unset' : '50%',
+            transform: isMobile ? 'unset' : 'translateX(-50%)',
             backgroundColor: 'rgba(255, 255, 255, 0.9)',
-            padding: '20px 40px',
-            borderRadius: '20px',
-            boxShadow: '0 10px 40px rgba(0,0,0,0.2)',
+            padding: isMobile ? '10px 20px' : '20px 40px',
+            borderRadius: isMobile ? '0px' : '20px',
+            boxShadow: isMobile ? 'none' : '0 10px 40px rgba(0,0,0,0.2)',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            gap: '20px',
-            backdropFilter: 'blur(10px)'
+            gap: isMobile ? '10px' : '20px',
+            backdropFilter: 'blur(10px)',
+            width: isMobile ? '100%' : 'auto',
+            boxSizing: 'border-box'
         }}>
             {/* Player colour indicator */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

@@ -39,10 +39,19 @@ const AUDIO_MAP = {
 };
 
 function App() {
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [selectedHandIndex, setSelectedHandIndex] = useState(-1);
   const [rotation, setRotation] = useState(0);
   const [prePlacementState, setPrePlacementState] = useState<GameState | null>(null);
+
+  // Layout states for mobile
+  const [isScoreboardExpanded, setIsScoreboardExpanded] = useState(!isMobile);
+  const [isHandExpanded, setIsHandExpanded] = useState(!isMobile);
+
+  // Board position and zoom (moved from Board.tsx)
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
 
   // We need to remember what the AI decided to do with its meeple when it calculated the tile placement
   const [pendingAIMove, setPendingAIMove] = useState<any>(null);
@@ -54,10 +63,32 @@ function App() {
   const [showGallery, setShowGallery] = useState(false);
   const [showSandbox, setShowSandbox] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
+  const [windowSize, setWindowSize] = useState({ width: typeof window !== 'undefined' ? window.innerWidth : 1200, height: typeof window !== 'undefined' ? window.innerHeight : 800 });
 
 
   useEffect(() => {
     // Game state will be initialized by the StartScreen now instead of auto-starting.
+  }, []);
+
+  // Update expanded states and isMobile when window resizes
+  useEffect(() => {
+    let prevMobile = typeof window !== 'undefined' ? window.innerWidth < 768 : false;
+    const handleResize = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      setWindowSize({ width: window.innerWidth, height: window.innerHeight });
+      if (!mobile) {
+        setIsScoreboardExpanded(true);
+        setIsHandExpanded(true);
+      } else if (!prevMobile) {
+        // Just switched to mobile, collapse panels
+        setIsScoreboardExpanded(false);
+        setIsHandExpanded(false);
+      }
+      prevMobile = mobile;
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   useEffect(() => {
@@ -134,8 +165,38 @@ function App() {
     return () => { active = false; };
   }, [gameState?.turnPhase, gameState?.currentPlayerIndex]);
 
+  // Centralized Board Boundary Enforcement
+  useEffect(() => {
+    if (!gameState) return;
+    const tiles = Object.values(gameState.board);
+    if (tiles.length === 0) return;
+
+    const minX = Math.min(...tiles.map(t => t.x));
+    const maxX = Math.max(...tiles.map(t => t.x));
+    const minY = Math.min(...tiles.map(t => t.y));
+    const maxY = Math.max(...tiles.map(t => t.y));
+
+    const halfW = windowSize.width / 2;
+    const halfH = windowSize.height / 2;
+    const overlap = 50; // Keep at least 50px of the board on screen
+
+    // Tile size is 100x100. Tile (x,y) screen pos is halfW + pan + (coord * zoom)
+    // Local tile bounds are [coord*100-50, coord*100+50] due to Board.tsx centering
+    const limitXMin = overlap - halfW - (maxX * 100 + 50) * zoom;
+    const limitXMax = halfW - overlap - (minX * 100 - 50) * zoom;
+    const limitYMin = overlap - halfH - (maxY * 100 + 50) * zoom;
+    const limitYMax = halfH - overlap - (minY * 100 - 50) * zoom;
+
+    const clampedX = Math.min(Math.max(pan.x, limitXMin), limitXMax);
+    const clampedY = Math.min(Math.max(pan.y, limitYMin), limitYMax);
+
+    if (clampedX !== pan.x || clampedY !== pan.y) {
+      setPan({ x: clampedX, y: clampedY });
+    }
+  }, [gameState?.board, zoom, windowSize, pan.x, pan.y]);
+
   if (!gameState) {
-    return <StartScreen onStartGame={(names, types) => setGameState(createInitialState(names, types))} />;
+    return <StartScreen isMobile={isMobile} onStartGame={(names, types) => setGameState(createInitialState(names, types))} />;
   }
 
   const currentPlayer = gameState.players[gameState.currentPlayerIndex];
@@ -251,22 +312,68 @@ function App() {
   // PLAYER_COLORS is now imported globally
 
   return (
-    <div style={{ width: '100vw', height: '100vh', overflow: 'hidden', margin: 0, padding: 0, position: 'relative' }}>
+    <div
+      style={{ width: '100vw', height: '100vh', overflow: 'hidden', margin: 0, padding: 0, position: 'relative' }}
+      onClick={() => {
+        if (isMobile && gameState.turnPhase !== 'PlaceTile' && gameState.turnPhase !== 'PlaceMeeple') {
+          setIsScoreboardExpanded(false);
+          setIsHandExpanded(false);
+        }
+      }}
+    >
       <style>{SCORING_CSS}</style>
 
+      {/* Scoreboard Toggle (Mobile) */}
+      {isMobile && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsScoreboardExpanded(!isScoreboardExpanded);
+          }}
+          style={{
+            position: 'absolute',
+            top: 10,
+            left: 10,
+            zIndex: 300,
+            background: 'white',
+            border: 'none',
+            borderRadius: '50%',
+            width: 44,
+            height: 44,
+            fontSize: 20,
+            boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            transition: 'transform 0.2s'
+          }}
+          onMouseDown={e => e.currentTarget.style.transform = 'scale(0.9)'}
+          onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
+        >
+          {isScoreboardExpanded ? '❌' : '🏆'}
+        </button>
+      )}
+
       {/* Scoreboard Overlay */}
-      <div style={{
-        position: 'absolute',
-        top: 20,
-        left: 20,
-        backgroundColor: 'rgba(255,255,255,0.95)',
-        padding: '16px',
-        borderRadius: '12px',
-        boxShadow: '0 4px 15px rgba(0,0,0,0.2)',
-        zIndex: 50,
-        fontFamily: 'sans-serif',
-        minWidth: '200px'
-      }}>
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          position: 'absolute',
+          top: isMobile ? 60 : 20,
+          left: 20,
+          backgroundColor: 'rgba(255,255,255,0.95)',
+          padding: '16px',
+          borderRadius: '12px',
+          boxShadow: '0 4px 15px rgba(0,0,0,0.2)',
+          zIndex: 50,
+          fontFamily: 'sans-serif',
+          minWidth: '200px',
+          transition: isMobile ? 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)' : 'none',
+          transform: isMobile && !isScoreboardExpanded ? 'translateX(-120%)' : 'translateX(0)',
+          maxHeight: isMobile ? '70vh' : 'none',
+          overflowY: isMobile ? 'auto' : 'visible'
+        }}>
         <h3 style={{ margin: '0 0 10px 0', color: '#333', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px' }}>
           <span>Scoreboard</span>
           <div style={{ display: 'flex', gap: 4 }}>
@@ -383,6 +490,11 @@ function App() {
 
       <Board
         state={gameState}
+        pan={pan}
+        setPan={setPan}
+        zoom={zoom}
+        setZoom={setZoom}
+        isMobile={isMobile}
         focusTarget={computedFocusTarget}
         validPlacements={gameState.turnPhase === 'PlaceTile' ? validPlacements : []}
         meepleTilePosition={
@@ -403,376 +515,511 @@ function App() {
         onFeatureClick={handlePlaceMeeple}
       />
 
+      {/* Mobile Navigation Buttons */}
+      {
+        isMobile && !isScoreboardExpanded && !isHandExpanded && (
+          <>
+            {/* Top Arrow */}
+            <button
+              onClick={(e) => { e.stopPropagation(); setPan(p => ({ ...p, y: p.y + 100 })); }}
+              style={{
+                position: 'absolute', top: 80, left: '50%', transform: 'translateX(-50%)',
+                width: 50, height: 50, borderRadius: '50%', background: 'rgba(255,255,255,0.8)',
+                border: 'none', fontSize: 24, boxShadow: '0 2px 8px rgba(0,0,0,0.2)', zIndex: 200, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center'
+              }}
+            >↑</button>
 
-      {gameState.turnPhase === 'PlaceMeeple' && (() => {
-        const meeplesLeft = gameState.remainingMeeples[currentPlayer]?.standard ?? 0;
-        const hasNoMeeples = meeplesLeft === 0;
-        return (
-          <div style={{
-            position: 'absolute',
-            bottom: 20,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            backgroundColor: 'rgba(255,255,255,0.95)',
-            padding: '12px 24px',
-            borderRadius: '12px',
-            boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '8px',
-            zIndex: 100,
-          }}>
-            <span style={{ fontWeight: 'bold', color: hasNoMeeples ? '#c62828' : '#333', fontSize: '14px' }}>
-              {hasNoMeeples
-                ? `Player ${currentPlayer} has no meeples remaining`
-                : `Click a spot on the tile to place a meeple`}
-            </span>
-            <div style={{ display: 'flex', gap: '10px' }}>
+            {/* Bottom Arrow */}
+            <button
+              onClick={(e) => { e.stopPropagation(); setPan(p => ({ ...p, y: p.y - 100 })); }}
+              style={{
+                position: 'absolute', bottom: isHandExpanded ? 220 : 80, left: '50%', transform: 'translateX(-50%)',
+                width: 50, height: 50, borderRadius: '50%', background: 'rgba(255,255,255,0.8)',
+                border: 'none', fontSize: 24, boxShadow: '0 2px 8px rgba(0,0,0,0.2)', zIndex: 200, cursor: 'pointer',
+                transition: 'bottom 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center'
+              }}
+            >↓</button>
+
+            {/* Left Arrow */}
+            <button
+              onClick={(e) => { e.stopPropagation(); setPan(p => ({ ...p, x: p.x + 100 })); }}
+              style={{
+                position: 'absolute', top: '50%', left: 10, transform: 'translateY(-50%)',
+                width: 50, height: 50, borderRadius: '50%', background: 'rgba(255,255,255,0.8)',
+                border: 'none', fontSize: 24, boxShadow: '0 2px 8px rgba(0,0,0,0.2)', zIndex: 200, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center'
+              }}
+            >←</button>
+
+            {/* Right Arrow */}
+            <button
+              onClick={(e) => { e.stopPropagation(); setPan(p => ({ ...p, x: p.x - 100 })); }}
+              style={{
+                position: 'absolute', top: '50%', right: 10, transform: 'translateY(-50%)',
+                width: 50, height: 50, borderRadius: '50%', background: 'rgba(255,255,255,0.8)',
+                border: 'none', fontSize: 24, boxShadow: '0 2px 8px rgba(0,0,0,0.2)', zIndex: 200, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center'
+              }}
+            >→</button>
+
+            {/* Zoom Controls */}
+            <div style={{
+              position: 'absolute',
+              bottom: isHandExpanded ? 240 : 150,
+              right: 15,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '10px',
+              zIndex: 400,
+              transition: 'bottom 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+            }}>
               <button
-                onClick={handleCancelPlacement}
+                onClick={(e) => { e.stopPropagation(); setZoom(z => Math.min(z * 1.2, 3)); }}
                 style={{
-                  padding: '8px 20px',
-                  backgroundColor: 'transparent',
-                  color: UI_COLORS.danger,
-                  border: `2px solid ${UI_COLORS.dangerLight}`,
-                  borderRadius: '8px',
-                  fontWeight: 'bold',
-                  cursor: 'pointer',
-                  fontSize: '13px',
+                  width: 54, height: 54, borderRadius: '50%', background: 'white',
+                  border: 'none', fontSize: 24, fontWeight: 'bold', boxShadow: '0 2px 12px rgba(0,0,0,0.3)',
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
                 }}
-              >
-                Cancel Tile
-              </button>
+              >+</button>
               <button
-                onClick={handleSkipMeeple}
+                onClick={(e) => { e.stopPropagation(); setZoom(z => Math.max(z * 0.8, 0.3)); }}
                 style={{
-                  padding: '8px 20px',
-                  backgroundColor: hasNoMeeples ? UI_COLORS.primary : 'transparent',
-                  color: hasNoMeeples ? '#fff' : '#888',
-                  border: hasNoMeeples ? `2px solid ${UI_COLORS.primary}` : '2px solid #ccc',
-                  borderRadius: '8px',
-                  fontWeight: 'bold',
-                  cursor: 'pointer',
-                  fontSize: '13px',
+                  width: 54, height: 54, borderRadius: '50%', background: 'white',
+                  border: 'none', fontSize: 24, fontWeight: 'bold', boxShadow: '0 2px 12px rgba(0,0,0,0.3)',
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
                 }}
-              >
-                {hasNoMeeples ? 'Continue' : 'Skip (No Meeple)'}
-              </button>
+              >-</button>
             </div>
-          </div>
-        );
-      })()}
+          </>
+        )
+      }
+
+
+      {
+        gameState.turnPhase === 'PlaceMeeple' && (() => {
+          const meeplesLeft = gameState.remainingMeeples[currentPlayer]?.standard ?? 0;
+          const hasNoMeeples = meeplesLeft === 0;
+          return (
+            <div style={{
+              position: 'absolute',
+              bottom: 20,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              backgroundColor: 'rgba(255,255,255,0.95)',
+              padding: '12px 24px',
+              borderRadius: '12px',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '8px',
+              zIndex: 100,
+            }}>
+              <span style={{ fontWeight: 'bold', color: hasNoMeeples ? '#c62828' : '#333', fontSize: '14px' }}>
+                {hasNoMeeples
+                  ? `Player ${currentPlayer} has no meeples remaining`
+                  : `Click a spot on the tile to place a meeple`}
+              </span>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  onClick={handleCancelPlacement}
+                  style={{
+                    padding: '8px 20px',
+                    backgroundColor: 'transparent',
+                    color: UI_COLORS.danger,
+                    border: `2px solid ${UI_COLORS.dangerLight}`,
+                    borderRadius: '8px',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                  }}
+                >
+                  Cancel Tile
+                </button>
+                <button
+                  onClick={handleSkipMeeple}
+                  style={{
+                    padding: '8px 20px',
+                    backgroundColor: hasNoMeeples ? UI_COLORS.primary : 'transparent',
+                    color: hasNoMeeples ? '#fff' : '#888',
+                    border: hasNoMeeples ? `2px solid ${UI_COLORS.primary}` : '2px solid #ccc',
+                    borderRadius: '8px',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                  }}
+                >
+                  {hasNoMeeples ? 'Continue' : 'Skip (No Meeple)'}
+                </button>
+              </div>
+            </div>
+          );
+        })()
+      }
 
       {/* Show hand if it's a human turn */}
-      {gameState.turnPhase !== 'PlaceMeeple' && gameState.turnPhase !== 'GameOver' && gameState.playerTypes[currentPlayer] === 'human' && (
-        <Hand
-          state={gameState}
-          playerId={currentPlayer}
-          playerColor={PLAYER_COLORS[currentPlayer] || '#999'}
-          selectedIndex={selectedHandIndex}
-          currentRotation={rotation}
-          onSelect={(idx) => {
-            setSelectedHandIndex(idx);
-            setRotation(0);
-          }}
-          onRotate={() => setRotation(r => (r + 1) % 4)}
-        />
-      )}
-
-      {/* Game Over Overlay */}
-      {gameState.turnPhase === 'GameOver' && (() => {
-        const sortedPlayers = [...gameState.players].sort((a, b) => (gameState.scores[b] || 0) - (gameState.scores[a] || 0));
-        const topScore = gameState.scores[sortedPlayers[0]] || 0;
-        const winners = sortedPlayers.filter(p => (gameState.scores[p] || 0) === topScore);
-        const medals = ['🥇', '🥈', '🥉'];
-        return (
+      {
+        gameState.turnPhase !== 'PlaceMeeple' && gameState.turnPhase !== 'GameOver' && gameState.playerTypes[currentPlayer] === 'human' && (
           <>
-            {/* Always render Board so players can pan/zoom and use field view */}
-            {showBoardPostGame && (
-              <div style={{
-                position: 'absolute', top: 0, left: 0, right: 0,
-                background: 'linear-gradient(90deg, rgba(18,18,40,0.96), rgba(40,15,60,0.96))',
-                zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '10px 24px', boxShadow: '0 2px 16px rgba(0,0,0,0.5)'
-              }}>
-                <span style={{ color: '#ffd700', fontWeight: 'bold', fontSize: 18 }}>
-                  {winners.length === 1 ? `🏆 Player ${winners[0]} Wins!` : `🤝 Tie`}
-                  {gameState.players.map(p => (
-                    <span key={p} style={{ marginLeft: 16, fontSize: 14, color: PLAYER_COLORS[p] || '#fff' }}>
-                      P{p}: {gameState.scores[p] || 0}pts
-                    </span>
-                  ))}
-                </span>
-                <button
-                  onClick={() => setShowBoardPostGame(false)}
-                  style={{
-                    padding: '7px 18px', background: 'rgba(255,215,0,0.15)', color: '#ffd700',
-                    border: '1px solid #ffd70055', borderRadius: 8, cursor: 'pointer',
-                    fontWeight: 'bold', fontSize: 13
-                  }}
-                >← Back to Results</button>
-              </div>
-            )}
-            {!showBoardPostGame && (
-              <div style={{
-                position: 'absolute', inset: 0,
-                background: 'linear-gradient(135deg, rgba(18,18,40,0.97), rgba(40,15,60,0.97))',
-                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                zIndex: 1000, fontFamily: 'sans-serif'
-              }}>
-                <div style={{ fontSize: 64, marginBottom: 12 }}>🏰</div>
-                <h1 style={{ color: '#ffd700', fontSize: 36, margin: '0 0 4px', textShadow: '0 2px 12px rgba(255,215,0,0.6)' }}>Game Over!</h1>
-                <p style={{ color: '#aaa', margin: '0 0 32px', fontSize: 16 }}>All tiles placed — final scores are in!</p>
-
-                {/* Winner banner */}
-                <div style={{
-                  background: 'linear-gradient(90deg, #ffd700, #ff9800)',
-                  borderRadius: 14, padding: '12px 32px', marginBottom: 28,
-                  boxShadow: '0 4px 24px rgba(255,165,0,0.4)'
-                }}>
-                  <span style={{ fontSize: 20, fontWeight: 'bold', color: '#1a1a1a' }}>
-                    {winners.length === 1 ? `🏆 Player ${winners[0]} Wins!` : `🤝 Tie: ${winners.map(p => `Player ${p}`).join(' & ')}`}
-                  </span>
-                </div>
-
-                {/* Final score breakdown bars */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 16, width: '100%', maxWidth: 480, marginBottom: 36 }}>
-                  {(() => {
-                    const CATS = [
-                      { key: 'city' as const, label: 'Cities', color: '#c9a84c', midColor: '#e8cfa0' },
-                      { key: 'road' as const, label: 'Roads', color: '#9e9e9e', midColor: '#cfcfcf' },
-                      { key: 'monastery' as const, label: 'Monasteries', color: FEATURE_COLORS.monastery, midColor: '#f08080' },
-                      { key: 'field' as const, label: 'Fields', color: FEATURE_COLORS.field, midColor: '#90c994' },
-                    ];
-                    return sortedPlayers.map((pid, rank) => {
-                      const total = gameState.scores[pid] || 0;
-                      const breakdown = gameState.endGameScoreBreakdown?.[pid];
-                      const midBreakdown = gameState.midGameScoreBreakdown?.[pid];
-                      const maxScore = Math.max(...gameState.players.map(p => gameState.scores[p] || 0), 1);
-
-                      return (
-                        <div key={pid} style={{
-                          background: 'rgba(255,255,255,0.06)',
-                          borderLeft: `5px solid ${PLAYER_COLORS[pid] || '#999'}`,
-                          borderRadius: '0 12px 12px 0',
-                          padding: '12px 16px',
-                        }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                            <span style={{ color: '#eee', fontSize: 15 }}>{medals[rank] || '  '} Player {pid}</span>
-                            <span style={{ color: '#ffd700', fontWeight: 'bold', fontSize: 18 }}>{total} pts</span>
-                          </div>
-                          {/* Stacked bar */}
-                          <div style={{ display: 'flex', height: 20, borderRadius: 6, overflow: 'hidden', background: 'rgba(0,0,0,0.3)', marginBottom: 6 }}>
-                            {/* Mid-game segments (lighter shade, same category colours) */}
-                            {midBreakdown && CATS.map(cat => {
-                              const pts = midBreakdown[cat.key] || 0;
-                              if (pts === 0) return null;
-                              return (
-                                <div key={`mid-${cat.key}`} title={`Mid-game ${cat.label}: ${pts}pts`} style={{
-                                  width: `${(pts / maxScore) * 100}%`,
-                                  background: cat.midColor, minWidth: 2,
-                                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                  fontSize: 10, color: '#333', fontWeight: 'bold',
-                                }}>{pts > 4 ? pts : ''}</div>
-                              );
-                            })}
-                            {/* End-game category segments (full colour) */}
-                            {breakdown && CATS.map(cat => {
-                              const pts = breakdown[cat.key] || 0;
-                              if (pts === 0) return null;
-                              return (
-                                <div key={cat.key} title={`End-game ${cat.label}: ${pts}pts`} style={{
-                                  width: `${(pts / maxScore) * 100}%`,
-                                  background: cat.color, minWidth: 2,
-                                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                  fontSize: 10, color: '#fff', fontWeight: 'bold',
-                                }}>{pts > 4 ? pts : ''}</div>
-                              );
-                            })}
-                          </div>
-                          {/* Legend pills */}
-                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                            {midBreakdown && CATS.map(cat => {
-                              const pts = midBreakdown[cat.key] || 0;
-                              if (pts === 0) return null;
-                              return <span key={`mid-${cat.key}`} style={{ fontSize: 11, background: cat.midColor, borderRadius: 10, padding: '2px 7px', color: '#333' }}>Mid {cat.label} {pts}</span>;
-                            })}
-                            {breakdown && CATS.map(cat => {
-                              const pts = breakdown[cat.key] || 0;
-                              if (pts === 0) return null;
-                              return <span key={cat.key} style={{ fontSize: 11, background: cat.color, borderRadius: 10, padding: '2px 7px', color: '#fff' }}>{cat.label} {pts}</span>;
-                            })}
-                          </div>
-                        </div>
-                      );
-                    });
-                  })()}
-                </div>
-                <div style={{ display: 'flex', gap: 16 }}>
-                  <button
-                    onClick={() => {
-                      setShowBoardPostGame(true);
-                      setShowFieldView(true);
-                    }}
-                    style={{
-                      padding: '14px 32px', fontSize: 18, fontWeight: 'bold',
-                      background: 'rgba(255,255,255,0.1)',
-                      color: '#ddd', border: '1px solid #555', borderRadius: 12, cursor: 'pointer',
-                      transition: 'all 0.15s'
-                    }}
-                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.2)'; e.currentTarget.style.color = '#fff'; }}
-                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; e.currentTarget.style.color = '#ddd'; }}
-                  >
-                    View Field Conquest
-                  </button>
-                  <button
-                    onClick={() => {
-                      setGameState(createInitialState(gameState.playerNames, gameState.playerTypes));
-                      setSelectedHandIndex(-1);
-                      setRotation(0);
-                      setShowDeckViewer(false);
-                      setShowBoardPostGame(false);
-                    }}
-                    style={{
-                      padding: '14px 48px', fontSize: 18, fontWeight: 'bold',
-                      background: `linear-gradient(90deg, ${UI_COLORS.primary}, ${UI_COLORS.primaryLight})`,
-                      color: '#fff', border: 'none', borderRadius: 12, cursor: 'pointer',
-                      boxShadow: '0 4px 20px rgba(33,150,243,0.5)',
-                      transition: 'transform 0.15s'
-                    }}
-                    onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.06)')}
-                    onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
-                  >
-                    Play Again
-                  </button>
-                  <button
-                    onClick={() => {
-                      setGameState(null);
-                      setSelectedHandIndex(-1);
-                      setRotation(0);
-                      setShowDeckViewer(false);
-                      setShowBoardPostGame(false);
-                    }}
-                    style={{
-                      padding: '14px 24px', fontSize: 16, fontWeight: 'bold',
-                      background: 'rgba(255,255,255,0.05)',
-                      color: '#bbb', border: '1px solid #444', borderRadius: 12, cursor: 'pointer',
-                      transition: 'all 0.15s'
-                    }}
-                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; e.currentTarget.style.color = '#fff'; }}
-                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = '#bbb'; }}
-                  >
-                    Back to Main Menu
-                  </button>
-                </div>
-              </div>
-            )}
-          </>
-        );
-      })()}
-      {/* Deck Viewer Modal */}
-      {showDeckViewer && (
-        <DeckViewer
-          deck={gameState.deck}
-          onClose={() => setShowDeckViewer(false)}
-        />
-      )}
-
-      {/* Tile Gallery Modal */}
-      {showGallery && (
-        <div style={{
-          position: 'fixed', inset: 0,
-          background: 'rgba(255,255,255,0.98)',
-          zIndex: 2000, overflowY: 'auto', padding: '40px',
-          fontFamily: 'sans-serif'
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 30 }}>
-            <h2 style={{ color: '#333', margin: 0 }}>Tile Gallery (Field Coverage Verification)</h2>
-            <div style={{ display: 'flex', gap: 16 }}>
+            {isMobile && (
               <button
-                onClick={() => setShowFieldView(v => !v)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsHandExpanded(!isHandExpanded);
+                }}
                 style={{
-                  background: showFieldView ? UI_COLORS.success : '#e0e0e0',
-                  color: showFieldView ? '#fff' : '#333', border: 'none', borderRadius: 8,
-                  padding: '8px 16px', fontSize: 16, cursor: 'pointer', fontWeight: 'bold'
+                  position: 'absolute',
+                  bottom: 10,
+                  right: 10,
+                  zIndex: 400,
+                  background: 'white',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: 54,
+                  height: 54,
+                  fontSize: 24,
+                  boxShadow: '0 2px 12px rgba(0,0,0,0.3)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                  transform: isMobile && isHandExpanded ? 'translateY(-180px)' : 'translateY(0)'
                 }}
               >
-                {showFieldView ? '🌾 Field Coverage ON' : '🌾 Field Coverage OFF'}
+                {isHandExpanded ? '❌' : '🃏'}
               </button>
-              <button
-                onClick={() => setShowGallery(false)}
-                style={{
-                  background: UI_COLORS.danger, color: '#fff', border: 'none', borderRadius: 8,
-                  padding: '8px 16px', fontSize: 16, cursor: 'pointer', fontWeight: 'bold'
+            )}
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                position: 'fixed',
+                bottom: 0,
+                left: 0,
+                right: 0,
+                zIndex: 300,
+                transition: isMobile ? 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)' : 'none',
+                transform: isMobile && !isHandExpanded ? 'translateY(110%)' : 'translateY(0)',
+                pointerEvents: isMobile && !isHandExpanded ? 'none' : 'auto'
+              }}>
+              <Hand
+                state={gameState}
+                playerId={currentPlayer}
+                playerColor={PLAYER_COLORS[currentPlayer] || '#999'}
+                selectedIndex={selectedHandIndex}
+                currentRotation={rotation}
+                onSelect={(idx) => {
+                  setSelectedHandIndex(idx);
+                  setRotation(0);
                 }}
-              >Close</button>
+                onRotate={() => setRotation(r => (r + 1) % 4)}
+                isMobile={isMobile}
+              />
             </div>
-          </div>
-          <div style={{
-            display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
-            gap: '30px', maxWidth: 1200, margin: '0 auto'
-          }}>
-            {BASE_TILES.map(def => {
-              // Create dummy field conquest data mapping each field index to a distinct "player" color
-              const fakeConquest = new Map<string, number[]>();
-              if (def.fieldConnections) {
-                def.fieldConnections.forEach((_, i) => {
-                  fakeConquest.set(`0,0,${i}`, [1]); // always red (player 1)
-                });
-              }
-              return (
-                <div key={def.typeId} style={{ textAlign: 'center' }}>
-                  <div style={{ position: 'relative', width: 140, height: 140, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', borderRadius: 4 }}>
-                    <TileRenderer
-                      def={def} size={140}
-                      placed={{ id: 'gal', typeId: def.typeId, x: 0, y: 0, rotation: 0, meeples: [] }}
-                    />
-                    {showFieldView && def.fieldConnections && (() => {
-                      const hasMonastery = !!def.monastery;
-                      const cityPaths = getCityMaskPaths(def);
-                      const roadPaths = getRoadMaskPaths(def);
-                      return def.fieldConnections.map((_, fIdx) => {
-                        const winners = fakeConquest.get(`0,0,${fIdx}`);
-                        if (!winners) return null;
-                        const fieldD = def.fieldPaths?.[fIdx];
-                        const isFullTile = def.fieldConnections!.length === 1;
-                        if (!fieldD && !isFullTile) return null;
+          </>
+        )
+      }
 
-                        const patId = `gal-pat-${def.typeId}-${fIdx}`;
-                        const maskId = `gal-msk-${def.typeId}-${fIdx}`;
-                        const clipId = `gal-clp-${def.typeId}-${fIdx}`;
-                        const c = PLAYER_COLORS[winners[0]] || '#888';
+      {/* Game Over Overlay */}
+      {
+        gameState.turnPhase === 'GameOver' && (() => {
+          const sortedPlayers = [...gameState.players].sort((a, b) => (gameState.scores[b] || 0) - (gameState.scores[a] || 0));
+          const topScore = gameState.scores[sortedPlayers[0]] || 0;
+          const winners = sortedPlayers.filter(p => (gameState.scores[p] || 0) === topScore);
+          const medals = ['🥇', '🥈', '🥉'];
+          return (
+            <>
+              {/* Always render Board so players can pan/zoom and use field view */}
+              {showBoardPostGame && (
+                <div style={{
+                  position: 'absolute', top: 0, left: 0, right: 0,
+                  background: 'linear-gradient(90deg, rgba(18,18,40,0.96), rgba(40,15,60,0.96))',
+                  zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '10px 24px', boxShadow: '0 2px 16px rgba(0,0,0,0.5)'
+                }}>
+                  <span style={{ color: '#ffd700', fontWeight: 'bold', fontSize: 18 }}>
+                    {winners.length === 1 ? `🏆 Player ${winners[0]} Wins!` : `🤝 Tie`}
+                    {gameState.players.map(p => (
+                      <span key={p} style={{ marginLeft: 16, fontSize: 14, color: PLAYER_COLORS[p] || '#fff' }}>
+                        P{p}: {gameState.scores[p] || 0}pts
+                      </span>
+                    ))}
+                  </span>
+                  <button
+                    onClick={() => setShowBoardPostGame(false)}
+                    style={{
+                      padding: '7px 18px', background: 'rgba(255,215,0,0.15)', color: '#ffd700',
+                      border: '1px solid #ffd70055', borderRadius: 8, cursor: 'pointer',
+                      fontWeight: 'bold', fontSize: 13
+                    }}
+                  >← Back to Results</button>
+                </div>
+              )}
+              {!showBoardPostGame && (
+                <div style={{
+                  position: 'absolute', inset: 0,
+                  background: 'linear-gradient(135deg, rgba(18,18,40,0.97), rgba(40,15,60,0.97))',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                  zIndex: 1000, fontFamily: 'sans-serif'
+                }}>
+                  <div style={{ fontSize: 64, marginBottom: 12 }}>🏰</div>
+                  <h1 style={{ color: '#ffd700', fontSize: 36, margin: '0 0 4px', textShadow: '0 2px 12px rgba(255,215,0,0.6)' }}>Game Over!</h1>
+                  <p style={{ color: '#aaa', margin: '0 0 32px', fontSize: 16 }}>All tiles placed — final scores are in!</p>
+
+                  {/* Winner banner */}
+                  <div style={{
+                    background: 'linear-gradient(90deg, #ffd700, #ff9800)',
+                    borderRadius: 14, padding: '12px 32px', marginBottom: 28,
+                    boxShadow: '0 4px 24px rgba(255,165,0,0.4)'
+                  }}>
+                    <span style={{ fontSize: 20, fontWeight: 'bold', color: '#1a1a1a' }}>
+                      {winners.length === 1 ? `🏆 Player ${winners[0]} Wins!` : `🤝 Tie: ${winners.map(p => `Player ${p}`).join(' & ')}`}
+                    </span>
+                  </div>
+
+                  {/* Final score breakdown bars */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 16, width: '100%', maxWidth: 480, marginBottom: 36 }}>
+                    {(() => {
+                      const CATS = [
+                        { key: 'city' as const, label: 'Cities', color: '#c9a84c', midColor: '#e8cfa0' },
+                        { key: 'road' as const, label: 'Roads', color: '#9e9e9e', midColor: '#cfcfcf' },
+                        { key: 'monastery' as const, label: 'Monasteries', color: FEATURE_COLORS.monastery, midColor: '#f08080' },
+                        { key: 'field' as const, label: 'Fields', color: FEATURE_COLORS.field, midColor: '#90c994' },
+                      ];
+                      return sortedPlayers.map((pid, rank) => {
+                        const total = gameState.scores[pid] || 0;
+                        const breakdown = gameState.endGameScoreBreakdown?.[pid];
+                        const midBreakdown = gameState.midGameScoreBreakdown?.[pid];
+                        const maxScore = Math.max(...gameState.players.map(p => gameState.scores[p] || 0), 1);
+
                         return (
-                          <svg key={fIdx} width="140" height="140" viewBox="0 0 100 100" style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }}>
-                            <defs>
-                              <pattern id={patId} x="0" y="0" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-                                <rect width="10" height="10" fill={c} fillOpacity="0.22" />
-                                <line x1="0" y1="5" x2="10" y2="5" stroke={c} strokeWidth="4" strokeOpacity="0.7" />
-                              </pattern>
-                              <mask id={maskId}>
-                                <rect width="100" height="100" fill="white" />
-                                {cityPaths.map((d: string, i: number) => <path key={`c${i}`} d={d} fill="black" />)}
-                                {roadPaths.map((d: string, i: number) => <path key={`r${i}`} d={d} fill="none" stroke="black" strokeWidth="12" strokeLinecap="round" />)}
-                                {hasMonastery && <circle cx="50" cy="50" r="24" fill="black" />}
-                              </mask>
-                              <clipPath id={clipId}>
-                                {isFullTile ? <rect width="100" height="100" /> : <path d={fieldD} />}
-                              </clipPath>
-                            </defs>
-                            <rect x="0" y="0" width="100" height="100" fill={`url(#${patId})`} mask={`url(#${maskId})`} clipPath={`url(#${clipId})`} />
-                          </svg>
+                          <div key={pid} style={{
+                            background: 'rgba(255,255,255,0.06)',
+                            borderLeft: `5px solid ${PLAYER_COLORS[pid] || '#999'}`,
+                            borderRadius: '0 12px 12px 0',
+                            padding: '12px 16px',
+                          }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                              <span style={{ color: '#eee', fontSize: 15 }}>{medals[rank] || '  '} Player {pid}</span>
+                              <span style={{ color: '#ffd700', fontWeight: 'bold', fontSize: 18 }}>{total} pts</span>
+                            </div>
+                            {/* Stacked bar */}
+                            <div style={{ display: 'flex', height: 20, borderRadius: 6, overflow: 'hidden', background: 'rgba(0,0,0,0.3)', marginBottom: 6 }}>
+                              {/* Mid-game segments (lighter shade, same category colours) */}
+                              {midBreakdown && CATS.map(cat => {
+                                const pts = midBreakdown[cat.key] || 0;
+                                if (pts === 0) return null;
+                                return (
+                                  <div key={`mid-${cat.key}`} title={`Mid-game ${cat.label}: ${pts}pts`} style={{
+                                    width: `${(pts / maxScore) * 100}%`,
+                                    background: cat.midColor, minWidth: 2,
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    fontSize: 10, color: '#333', fontWeight: 'bold',
+                                  }}>{pts > 4 ? pts : ''}</div>
+                                );
+                              })}
+                              {/* End-game category segments (full colour) */}
+                              {breakdown && CATS.map(cat => {
+                                const pts = breakdown[cat.key] || 0;
+                                if (pts === 0) return null;
+                                return (
+                                  <div key={cat.key} title={`End-game ${cat.label}: ${pts}pts`} style={{
+                                    width: `${(pts / maxScore) * 100}%`,
+                                    background: cat.color, minWidth: 2,
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    fontSize: 10, color: '#fff', fontWeight: 'bold',
+                                  }}>{pts > 4 ? pts : ''}</div>
+                                );
+                              })}
+                            </div>
+                            {/* Legend pills */}
+                            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                              {midBreakdown && CATS.map(cat => {
+                                const pts = midBreakdown[cat.key] || 0;
+                                if (pts === 0) return null;
+                                return <span key={`mid-${cat.key}`} style={{ fontSize: 11, background: cat.midColor, borderRadius: 10, padding: '2px 7px', color: '#333' }}>Mid {cat.label} {pts}</span>;
+                              })}
+                              {breakdown && CATS.map(cat => {
+                                const pts = breakdown[cat.key] || 0;
+                                if (pts === 0) return null;
+                                return <span key={cat.key} style={{ fontSize: 11, background: cat.color, borderRadius: 10, padding: '2px 7px', color: '#fff' }}>{cat.label} {pts}</span>;
+                              })}
+                            </div>
+                          </div>
                         );
                       });
                     })()}
                   </div>
-                  <h4 style={{ margin: '8px 0 0', color: '#555' }}>Tile {def.typeId}</h4>
+                  <div style={{ display: 'flex', gap: 16 }}>
+                    <button
+                      onClick={() => {
+                        setShowBoardPostGame(true);
+                        setShowFieldView(true);
+                      }}
+                      style={{
+                        padding: '14px 32px', fontSize: 18, fontWeight: 'bold',
+                        background: 'rgba(255,255,255,0.1)',
+                        color: '#ddd', border: '1px solid #555', borderRadius: 12, cursor: 'pointer',
+                        transition: 'all 0.15s'
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.2)'; e.currentTarget.style.color = '#fff'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; e.currentTarget.style.color = '#ddd'; }}
+                    >
+                      View Field Conquest
+                    </button>
+                    <button
+                      onClick={() => {
+                        setGameState(createInitialState(gameState.playerNames, gameState.playerTypes));
+                        setSelectedHandIndex(-1);
+                        setRotation(0);
+                        setShowDeckViewer(false);
+                        setShowBoardPostGame(false);
+                      }}
+                      style={{
+                        padding: '14px 48px', fontSize: 18, fontWeight: 'bold',
+                        background: `linear-gradient(90deg, ${UI_COLORS.primary}, ${UI_COLORS.primaryLight})`,
+                        color: '#fff', border: 'none', borderRadius: 12, cursor: 'pointer',
+                        boxShadow: '0 4px 20px rgba(33,150,243,0.5)',
+                        transition: 'transform 0.15s'
+                      }}
+                      onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.06)')}
+                      onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
+                    >
+                      Play Again
+                    </button>
+                    <button
+                      onClick={() => {
+                        setGameState(null);
+                        setSelectedHandIndex(-1);
+                        setRotation(0);
+                        setShowDeckViewer(false);
+                        setShowBoardPostGame(false);
+                      }}
+                      style={{
+                        padding: '14px 24px', fontSize: 16, fontWeight: 'bold',
+                        background: 'rgba(255,255,255,0.05)',
+                        color: '#bbb', border: '1px solid #444', borderRadius: 12, cursor: 'pointer',
+                        transition: 'all 0.15s'
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; e.currentTarget.style.color = '#fff'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = '#bbb'; }}
+                    >
+                      Back to Main Menu
+                    </button>
+                  </div>
                 </div>
-              );
-            })}
-          </div>
-        </div >
-      )
+              )}
+            </>
+          );
+        })()
+      }
+      {/* Deck Viewer Modal */}
+      {
+        showDeckViewer && (
+          <DeckViewer
+            deck={gameState.deck}
+            onClose={() => setShowDeckViewer(false)}
+          />
+        )
+      }
+
+      {/* Tile Gallery Modal */}
+      {
+        showGallery && (
+          <div style={{
+            position: 'fixed', inset: 0,
+            background: 'rgba(255,255,255,0.98)',
+            zIndex: 2000, overflowY: 'auto', padding: '40px',
+            fontFamily: 'sans-serif'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 30 }}>
+              <h2 style={{ color: '#333', margin: 0 }}>Tile Gallery (Field Coverage Verification)</h2>
+              <div style={{ display: 'flex', gap: 16 }}>
+                <button
+                  onClick={() => setShowFieldView(v => !v)}
+                  style={{
+                    background: showFieldView ? UI_COLORS.success : '#e0e0e0',
+                    color: showFieldView ? '#fff' : '#333', border: 'none', borderRadius: 8,
+                    padding: '8px 16px', fontSize: 16, cursor: 'pointer', fontWeight: 'bold'
+                  }}
+                >
+                  {showFieldView ? '🌾 Field Coverage ON' : '🌾 Field Coverage OFF'}
+                </button>
+                <button
+                  onClick={() => setShowGallery(false)}
+                  style={{
+                    background: UI_COLORS.danger, color: '#fff', border: 'none', borderRadius: 8,
+                    padding: '8px 16px', fontSize: 16, cursor: 'pointer', fontWeight: 'bold'
+                  }}
+                >Close</button>
+              </div>
+            </div>
+            <div style={{
+              display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
+              gap: '30px', maxWidth: 1200, margin: '0 auto'
+            }}>
+              {BASE_TILES.map(def => {
+                // Create dummy field conquest data mapping each field index to a distinct "player" color
+                const fakeConquest = new Map<string, number[]>();
+                if (def.fieldConnections) {
+                  def.fieldConnections.forEach((_, i) => {
+                    fakeConquest.set(`0,0,${i}`, [1]); // always red (player 1)
+                  });
+                }
+                return (
+                  <div key={def.typeId} style={{ textAlign: 'center' }}>
+                    <div style={{ position: 'relative', width: 140, height: 140, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', borderRadius: 4 }}>
+                      <TileRenderer
+                        def={def} size={140}
+                        placed={{ id: 'gal', typeId: def.typeId, x: 0, y: 0, rotation: 0, meeples: [] }}
+                      />
+                      {showFieldView && def.fieldConnections && (() => {
+                        const hasMonastery = !!def.monastery;
+                        const cityPaths = getCityMaskPaths(def);
+                        const roadPaths = getRoadMaskPaths(def);
+                        return def.fieldConnections.map((_, fIdx) => {
+                          const winners = fakeConquest.get(`0,0,${fIdx}`);
+                          if (!winners) return null;
+                          const fieldD = def.fieldPaths?.[fIdx];
+                          const isFullTile = def.fieldConnections!.length === 1;
+                          if (!fieldD && !isFullTile) return null;
+
+                          const patId = `gal-pat-${def.typeId}-${fIdx}`;
+                          const maskId = `gal-msk-${def.typeId}-${fIdx}`;
+                          const clipId = `gal-clp-${def.typeId}-${fIdx}`;
+                          const c = PLAYER_COLORS[winners[0]] || '#888';
+                          return (
+                            <svg key={fIdx} width="140" height="140" viewBox="0 0 100 100" style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }}>
+                              <defs>
+                                <pattern id={patId} x="0" y="0" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                                  <rect width="10" height="10" fill={c} fillOpacity="0.22" />
+                                  <line x1="0" y1="5" x2="10" y2="5" stroke={c} strokeWidth="4" strokeOpacity="0.7" />
+                                </pattern>
+                                <mask id={maskId}>
+                                  <rect width="100" height="100" fill="white" />
+                                  {cityPaths.map((d: string, i: number) => <path key={`c${i}`} d={d} fill="black" />)}
+                                  {roadPaths.map((d: string, i: number) => <path key={`r${i}`} d={d} fill="none" stroke="black" strokeWidth="12" strokeLinecap="round" />)}
+                                  {hasMonastery && <circle cx="50" cy="50" r="24" fill="black" />}
+                                </mask>
+                                <clipPath id={clipId}>
+                                  {isFullTile ? <rect width="100" height="100" /> : <path d={fieldD} />}
+                                </clipPath>
+                              </defs>
+                              <rect x="0" y="0" width="100" height="100" fill={`url(#${patId})`} mask={`url(#${maskId})`} clipPath={`url(#${clipId})`} />
+                            </svg>
+                          );
+                        });
+                      })()}
+                    </div>
+                    <h4 style={{ margin: '8px 0 0', color: '#555' }}>Tile {def.typeId}</h4>
+                  </div>
+                );
+              })}
+            </div>
+          </div >
+        )
       }
     </div >
   );

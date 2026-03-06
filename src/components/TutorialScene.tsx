@@ -19,6 +19,7 @@ interface TutorialSceneProps {
     showStartPreview?: boolean;
     highlightButton?: boolean;
     size?: number;
+    isMobile?: boolean;
 }
 
 export const TutorialScene: React.FC<TutorialSceneProps> = ({
@@ -37,7 +38,8 @@ export const TutorialScene: React.FC<TutorialSceneProps> = ({
     extraMeeples = [],
     showStartPreview = false,
     highlightButton = false,
-    size = 350
+    size = 350,
+    isMobile = false
 }) => {
     // Determine bounds to center the tiles
     const minX = Math.min(...tiles.map(t => t.x), ...validPlacements.map(p => p.x));
@@ -55,7 +57,7 @@ export const TutorialScene: React.FC<TutorialSceneProps> = ({
         <div style={{
             width: size, height: size,
             backgroundColor: '#f0e6d2',
-            borderRadius: '16px',
+            borderRadius: isMobile ? '0px' : '16px',
             overflow: 'hidden',
             position: 'relative',
             border: '2px solid rgba(0,0,0,0.1)'

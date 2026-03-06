@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useRef, useEffect } from 'react';
 import type { GameState, PlayerId, PlacedTile } from '../engine/types';
 import { TileRenderer } from './TileRenderer';
 import { TILES_MAP } from '../engine/tiles';
@@ -8,6 +8,11 @@ import { PLAYER_COLORS } from '../engine/constants';
 
 interface BoardProps {
     state: GameState;
+    pan: { x: number, y: number };
+    setPan: React.Dispatch<React.SetStateAction<{ x: number, y: number }>>;
+    zoom: number;
+    setZoom: React.Dispatch<React.SetStateAction<number>>;
+    isMobile?: boolean;
     validPlacements?: { x: number, y: number }[];
     meepleTilePosition?: { x: number, y: number } | null;
     onTileClick?: (x: number, y: number, e: React.MouseEvent) => void;
@@ -30,20 +35,23 @@ interface BoardProps {
 }
 
 
-export const Board: React.FC<BoardProps> = ({ state, validPlacements = [], meepleTilePosition, onTileClick, onPlacementClick, onFeatureClick, disabledHotspots = [], fieldConquest, allTilesInteractive = false, sandboxMode = false, onContextMenu, focusTarget }) => {
-    const [pan, setPan] = useState({ x: 0, y: 0 });
-    const [zoom, setZoom] = useState(1);
+export const Board: React.FC<BoardProps> = ({ state, pan, setPan, zoom, setZoom, isMobile = false, validPlacements = [], meepleTilePosition, onTileClick, onPlacementClick, onFeatureClick, disabledHotspots = [], fieldConquest, allTilesInteractive = false, sandboxMode = false, onContextMenu, focusTarget }) => {
     const isDragging = useRef(false);
     const lastPan = useRef({ x: 0, y: 0 });
+
+    const handleSetPan = (updater: { x: number, y: number } | ((p: { x: number, y: number }) => { x: number, y: number })) => {
+        setPan(updater);
+    };
 
     // Auto-focus the camera when requested
     useEffect(() => {
         if (focusTarget) {
-            setPan({ x: -focusTarget.x * 100, y: -focusTarget.y * 100 });
+            handleSetPan({ x: -focusTarget.x * 100, y: -focusTarget.y * 100 });
         }
     }, [focusTarget]);
 
     const handlePointerDown = (e: React.PointerEvent) => {
+        if (isMobile) return; // Disable dragging on mobile as requested
         isDragging.current = true;
         lastPan.current = { x: e.clientX, y: e.clientY };
         (e.target as HTMLElement).setPointerCapture(e.pointerId);
@@ -53,7 +61,7 @@ export const Board: React.FC<BoardProps> = ({ state, validPlacements = [], meepl
         if (!isDragging.current) return;
         const dx = e.clientX - lastPan.current.x;
         const dy = e.clientY - lastPan.current.y;
-        setPan(p => ({ x: p.x + dx, y: p.y + dy }));
+        handleSetPan(p => ({ x: p.x + dx, y: p.y + dy }));
         lastPan.current = { x: e.clientX, y: e.clientY };
     };
 

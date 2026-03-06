@@ -4,6 +4,7 @@ import { DEBUG_MODE } from '../engine/constants';
 import { TutorialModal } from './TutorialModal';
 
 interface StartScreenProps {
+    isMobile: boolean;
     onStartGame: (playerNames: Record<number, string>, playerTypes: Record<number, PlayerType>) => void;
 }
 
@@ -18,7 +19,7 @@ const getRandomAiName = (existingNames: string[] = []) => {
     return `${name} (AI)`;
 };
 
-export const StartScreen: React.FC<StartScreenProps> = ({ onStartGame }) => {
+export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame }) => {
     const [showTutorial, setShowTutorial] = useState(false);
     const [mode, setMode] = useState<'local' | 'online'>(() => {
         const saved = localStorage.getItem('carcassonne_mode');
@@ -105,11 +106,16 @@ export const StartScreen: React.FC<StartScreenProps> = ({ onStartGame }) => {
             <div style={{
                 background: 'rgba(255, 255, 255, 0.1)',
                 backdropFilter: 'blur(10px)',
-                padding: '40px',
-                borderRadius: '16px',
-                boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
-                width: '400px',
-                display: 'flex', flexDirection: 'column', gap: '24px'
+                padding: isMobile ? '20px' : '40px',
+                borderRadius: isMobile ? '0px' : '16px',
+                boxShadow: isMobile ? 'none' : '0 8px 32px rgba(0,0,0,0.3)',
+                width: isMobile ? '100vw' : '400px',
+                height: isMobile ? '100vh' : 'auto',
+                maxWidth: isMobile ? '100vw' : '400px',
+                maxHeight: isMobile ? '100vh' : 'auto',
+                display: 'flex', flexDirection: 'column', gap: '24px',
+                boxSizing: isMobile ? 'border-box' : 'content-box',
+                justifyContent: isMobile ? 'center' : 'flex-start'
             }}>
                 <h1 style={{ margin: 0, textAlign: 'center', fontSize: '36px', fontWeight: 'bold', textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}>
                     Carcassonne
@@ -286,7 +292,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({ onStartGame }) => {
                 </button>
             </div>
 
-            {showTutorial && <TutorialModal onClose={() => setShowTutorial(false)} />}
+            {showTutorial && <TutorialModal isMobile={isMobile} onClose={() => setShowTutorial(false)} />}
 
             {/* Author Credit */}
             <div style={{
