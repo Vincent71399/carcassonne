@@ -60,8 +60,9 @@ function App() {
   // Layout states for mobile/iPad
   const [isIPad, setIsIPad] = useState(typeof window !== 'undefined' ? (/Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 0) : false);
   const useRetractableUI = isMobile || isIPad;
-  const [isScoreboardExpanded, setIsScoreboardExpanded] = useState(!isMobile && !isIPad);
-  const [isHandExpanded, setIsHandExpanded] = useState(!isMobile && !isIPad);
+  const isScoreboardRetractable = isMobile;
+  const [isScoreboardExpanded, setIsScoreboardExpanded] = useState(!isScoreboardRetractable);
+  const [isHandExpanded, setIsHandExpanded] = useState(true);
 
   // Board position and zoom (moved from Board.tsx)
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -107,9 +108,9 @@ function App() {
         setIsScoreboardExpanded(true);
         setIsHandExpanded(true);
       } else if (!prevRetractable) {
-        // Just switched to mobile/iPad, collapse panels
-        setIsScoreboardExpanded(false);
-        setIsHandExpanded(false);
+        // Just switched to mobile/iPad
+        setIsScoreboardExpanded(!mobile); // persistent on iPad, retracted on mobile
+        setIsHandExpanded(true); // default open on both
       }
       prevMobile = mobile;
       prevIPad = iPad;
@@ -431,8 +432,8 @@ function App() {
       <style>{SCORING_CSS}</style>
 
 
-      {/* Scoreboard Toggle (Mobile/iPad) */}
-      {useRetractableUI && (
+      {/* Scoreboard Toggle (Mobile only) */}
+      {isScoreboardRetractable && (
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -468,7 +469,7 @@ function App() {
         onClick={(e) => e.stopPropagation()}
         style={{
           position: 'absolute',
-          top: useRetractableUI ? 60 : 20,
+          top: isScoreboardRetractable ? 60 : 20,
           left: 20,
           backgroundColor: 'rgba(255,255,255,0.95)',
           padding: '16px',
@@ -477,10 +478,10 @@ function App() {
           zIndex: 50,
           fontFamily: 'sans-serif',
           minWidth: '200px',
-          transition: useRetractableUI ? 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)' : 'none',
-          transform: useRetractableUI && !isScoreboardExpanded ? 'translateX(-120%)' : 'translateX(0)',
-          maxHeight: useRetractableUI ? '70vh' : 'none',
-          overflowY: useRetractableUI ? 'auto' : 'visible'
+          transition: isScoreboardRetractable ? 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)' : 'none',
+          transform: isScoreboardRetractable && !isScoreboardExpanded ? 'translateX(-120%)' : 'translateX(0)',
+          maxHeight: isScoreboardRetractable ? '70vh' : 'none',
+          overflowY: isScoreboardRetractable ? 'auto' : 'visible'
         }}>
         <h3 style={{ margin: '0 0 10px 0', color: '#333', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px' }}>
           <span>Scoreboard</span>
@@ -623,9 +624,9 @@ function App() {
         onFeatureClick={handlePlaceMeeple}
       />
 
-      {/* Mobile/iPad Navigation Buttons */}
+      {/* Mobile/iPad Navigation Arrows */}
       {
-        useRetractableUI && !isScoreboardExpanded && !isHandExpanded && (
+        useRetractableUI && !isHandExpanded && (!isScoreboardRetractable || !isScoreboardExpanded) && (
           <>
             {/* Top Arrow */}
             <button
@@ -671,50 +672,59 @@ function App() {
                 display: 'flex', alignItems: 'center', justifyContent: 'center'
               }}
             >→</button>
-
-            {/* Zoom Controls */}
-            <div style={{
-              position: 'absolute',
-              bottom: isHandExpanded ? 240 : 150,
-              right: 15,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '10px',
-              zIndex: 400,
-              transition: 'bottom 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
-            }}>
-              <button
-                onClick={(e) => { e.stopPropagation(); setZoom(z => Math.min(z * 1.2, 3)); }}
-                style={{
-                  width: 54, height: 54, borderRadius: '50%', background: 'white',
-                  border: 'none', fontSize: 24, fontWeight: 'bold', boxShadow: '0 2px 12px rgba(0,0,0,0.3)',
-                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
-                }}
-              >+</button>
-              <button
-                onClick={(e) => { e.stopPropagation(); setZoom(z => Math.max(z * 0.8, 0.3)); }}
-                style={{
-                  width: 54, height: 54, borderRadius: '50%', background: 'white',
-                  border: 'none', fontSize: 24, fontWeight: 'bold', boxShadow: '0 2px 12px rgba(0,0,0,0.3)',
-                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
-                }}
-              >-</button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsHandExpanded(!isHandExpanded);
-                }}
-                style={{
-                  width: 54, height: 54, borderRadius: '50%', background: 'white',
-                  border: 'none', fontSize: 24, boxShadow: '0 2px 12px rgba(0,0,0,0.3)',
-                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                }}
-              >
-                {isHandExpanded ? '❌' : '🃏'}
-              </button>
-            </div>
           </>
+        )
+      }
+
+      {/* Zoom/Hand-toggle Controls (Always visible on mobile/iPad) */}
+      {
+        useRetractableUI && (
+          <div style={{
+            position: 'absolute',
+            bottom: isHandExpanded ? 210 : 90,
+            right: 15,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '10px',
+            zIndex: 400,
+            transition: 'bottom 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+          }}>
+            {/* Zoom Controls (Mobile/iPad specific rules) */}
+            {(isMobile ? (!isScoreboardExpanded && !isHandExpanded) : (isIPad && !isHandExpanded)) && (
+              <>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setZoom(z => Math.min(z * 1.2, 3)); }}
+                  style={{
+                    width: 54, height: 54, borderRadius: '50%', background: 'white',
+                    border: 'none', fontSize: 24, fontWeight: 'bold', boxShadow: '0 2px 12px rgba(0,0,0,0.3)',
+                    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                  }}
+                >+</button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setZoom(z => Math.max(z * 0.8, 0.3)); }}
+                  style={{
+                    width: 54, height: 54, borderRadius: '50%', background: 'white',
+                    border: 'none', fontSize: 24, fontWeight: 'bold', boxShadow: '0 2px 12px rgba(0,0,0,0.3)',
+                    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                  }}
+                >-</button>
+              </>
+            )}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsHandExpanded(!isHandExpanded);
+              }}
+              style={{
+                width: 54, height: 54, borderRadius: '50%', background: 'white',
+                border: 'none', fontSize: 24, boxShadow: '0 2px 12px rgba(0,0,0,0.3)',
+                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              }}
+            >
+              {isHandExpanded ? '❌' : '🃏'}
+            </button>
+          </div>
         )
       }
 
