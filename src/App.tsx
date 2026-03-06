@@ -75,6 +75,7 @@ function App() {
   const [showGallery, setShowGallery] = useState(false);
   const [showSandbox, setShowSandbox] = useState(false);
   const [showQuitConfirm, setShowQuitConfirm] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [windowSize, setWindowSize] = useState({ width: typeof window !== 'undefined' ? window.innerWidth : 1200, height: typeof window !== 'undefined' ? window.innerHeight : 800 });
 
@@ -136,6 +137,35 @@ function App() {
       }
     }
   }, [gameState, isMobile]);
+
+  // Track fullscreen state
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+    document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
+    };
+  }, []);
+
+  const handleToggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      const doc = document.documentElement as VendorElement;
+      const requestFullScreen = doc.requestFullscreen || doc.mozRequestFullScreen || doc.webkitRequestFullScreen || doc.msRequestFullScreen;
+      if (requestFullScreen) requestFullScreen.call(doc);
+    } else {
+      const doc = document as VendorDocument;
+      const exitFullScreen = doc.exitFullscreen || doc.mozCancelFullScreen || doc.webkitExitFullscreen || doc.msExitFullscreen;
+      if (exitFullScreen) exitFullScreen.call(doc);
+    }
+  };
 
   useEffect(() => {
     if (gameState?.turnPhase === 'Score' && gameState?.scoreUpdates?.length) {
@@ -657,6 +687,20 @@ function App() {
                   cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
                 }}
               >-</button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsHandExpanded(!isHandExpanded);
+                }}
+                style={{
+                  width: 54, height: 54, borderRadius: '50%', background: 'white',
+                  border: 'none', fontSize: 24, boxShadow: '0 2px 12px rgba(0,0,0,0.3)',
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                }}
+              >
+                {isHandExpanded ? '❌' : '🃏'}
+              </button>
             </div>
           </>
         )
@@ -730,33 +774,7 @@ function App() {
         gameState.turnPhase !== 'PlaceMeeple' && gameState.turnPhase !== 'GameOver' && gameState.playerTypes[currentPlayer] === 'human' && (
           <>
             {isMobile && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsHandExpanded(!isHandExpanded);
-                }}
-                style={{
-                  position: 'absolute',
-                  bottom: 10,
-                  right: 10,
-                  zIndex: 400,
-                  background: 'white',
-                  border: 'none',
-                  borderRadius: '50%',
-                  width: 54,
-                  height: 54,
-                  fontSize: 24,
-                  boxShadow: '0 2px 12px rgba(0,0,0,0.3)',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                  transform: isMobile && isHandExpanded ? 'translateY(-180px)' : 'translateY(0)'
-                }}
-              >
-                {isHandExpanded ? '❌' : '🃏'}
-              </button>
+              <div style={{ display: 'none' }} />
             )}
             <div
               onClick={(e) => e.stopPropagation()}
@@ -1120,6 +1138,39 @@ function App() {
           <line x1="21" y1="12" x2="9" y2="12"></line>
         </svg>
       </button>
+
+      {/* Fullscreen Button */}
+      {!isFullscreen && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            handleToggleFullscreen();
+          }}
+          style={{
+            position: 'absolute',
+            top: 20,
+            right: 74,
+            zIndex: 3000,
+            background: 'rgba(0,0,0,0.08)',
+            border: 'none',
+            borderRadius: 6,
+            cursor: 'pointer',
+            padding: '8px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            transition: 'all 0.2s',
+            width: 44,
+            height: 44,
+            pointerEvents: 'auto'
+          }}
+          title="Enter Fullscreen"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M15 3h6v6M9 21H3v-6M21 15v6h-6M3 9V3h6" />
+          </svg>
+        </button>
+      )}
 
       {/* Custom Quit Confirmation Modal */}
       {showQuitConfirm && (
