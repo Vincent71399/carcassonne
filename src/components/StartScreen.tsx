@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import type { PlayerType } from '../engine/types';
 import { DEBUG_MODE } from '../engine/constants';
 import { TutorialModal } from './TutorialModal';
+import { useTranslation } from 'react-i18next';
 
 interface StartScreenProps {
     isMobile: boolean;
@@ -12,14 +13,39 @@ const AI_NAMES = [
     'Miso', 'Pippin', 'Nibble', 'Dot', 'Pebble', 'Orbit', 'Flux', 'Pivot', 'Moor', 'Abbey', 'Sentinel', 'Warden', 'Cipher', 'Vector', 'Nexus', 'Castell', 'Rampart', 'Bastion', 'Keep', 'Relic', 'Razor', 'Blade', 'Fang', 'Viper', 'Talon', 'Spike'
 ];
 
-const getRandomAiName = (existingNames: string[] = []) => {
-    const availableNames = AI_NAMES.filter(name => !existingNames.includes(`${name} (AI)`));
+const getRandomAiName = (existingNames: string[] = [], i18n_computer: string = '(AI)') => {
+    const availableNames = AI_NAMES.filter(name => !existingNames.includes(`${name} ${i18n_computer}`));
     const pool = availableNames.length > 0 ? availableNames : AI_NAMES;
     const name = pool[Math.floor(Math.random() * pool.length)];
-    return `${name} (AI)`;
+    return `${name} ${i18n_computer}`;
 };
 
+const ChinaFlag = () => (
+    <svg width="24" height="18" viewBox="0 0 30 20" style={{ borderRadius: '2px' }}>
+        <rect width="30" height="20" fill="#ee1c25" />
+        <path d="M5,5 l-0.951,2.927 L6.545,6.073 L3.455,6.073 L5.951,7.927 z" fill="#ffff00" transform="translate(-1.5,-1.5) scale(1.5)" />
+        <path d="M10,2 l-0.317,0.976 L10.515,2.358 L9.485,2.358 L10.317,2.976 z" fill="#ffff00" transform="rotate(-36.8,10,2)" />
+        <path d="M12,4 l-0.317,0.976 L12.515,4.358 L11.485,4.358 L12.317,4.976 z" fill="#ffff00" transform="rotate(-9.5,12,4)" />
+        <path d="M12,7 l-0.317,0.976 L12.515,7.358 L11.485,7.358 L12.317,7.976 z" fill="#ffff00" transform="rotate(12.4,12,7)" />
+        <path d="M10,9 l-0.317,0.976 L10.515,9.358 L9.485,9.358 L10.317,9.976 z" fill="#ffff00" transform="rotate(28.1,10,9)" />
+    </svg>
+);
+
+const EnglishFlag = () => (
+    <svg width="24" height="18" viewBox="0 0 60 30" style={{ borderRadius: '2px' }}>
+        <clipPath id="s">
+            <path d="M0,0 v30 h60 v-30 z" />
+        </clipPath>
+        <path d="M0,0 v30 h60 v-30 z" fill="#012169" />
+        <path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" strokeWidth="6" />
+        <path d="M0,0 L60,30 M60,0 L0,30" clipPath="url(#s)" stroke="#C8102E" strokeWidth="4" />
+        <path d="M30,0 v30 M0,15 h60" stroke="#fff" strokeWidth="10" />
+        <path d="M30,0 v30 M0,15 h60" stroke="#C8102E" strokeWidth="6" />
+    </svg>
+);
+
 export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame }) => {
+    const { t, i18n } = useTranslation();
     const [showTutorial, setShowTutorial] = useState(false);
     const [mode, setMode] = useState<'local' | 'online'>(() => {
         const saved = localStorage.getItem('carcassonne_mode');
@@ -41,24 +67,35 @@ export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame 
     });
     const [names, setNames] = useState<Record<number, string>>(() => {
         const savedNames = localStorage.getItem('carcassonne_names');
-        const initialNames = savedNames ? JSON.parse(savedNames) : {
-            1: 'Player 1',
-            2: 'Computer',
-            3: 'Computer',
-            4: 'Computer'
-        };
+        let initial: Record<number, string>;
+        if (savedNames) {
+            initial = JSON.parse(savedNames);
+        } else {
+            initial = {
+                1: i18n.t('startScreen.playerPlaceholder', { id: 1 }),
+                2: getRandomAiName([], i18n.t('startScreen.aiMarker')),
+                3: getRandomAiName([], i18n.t('startScreen.aiMarker')),
+                4: getRandomAiName([], i18n.t('startScreen.aiMarker'))
+            };
+        }
 
-        // Ensure AI players have random names if they are currently defaults
-        const updatedNames = { ...initialNames };
-        Object.entries(types).forEach(([id, type]) => {
-            const pId = parseInt(id, 10);
-            const name = updatedNames[pId];
-            if (type !== 'human' && (!name || name === 'Computer' || name.startsWith('Player ') || !name.endsWith(' (AI)'))) {
-                updatedNames[pId] = getRandomAiName(Object.values(updatedNames));
+        // Migration: convert (Co) to (AI)
+        let changed = false;
+        Object.keys(initial).forEach(key => {
+            const id = parseInt(key, 10);
+            if (initial[id].endsWith('(Co)')) {
+                initial[id] = initial[id].replace('(Co)', '(AI)');
+                changed = true;
             }
         });
-        return updatedNames;
+        if (changed) {
+            localStorage.setItem('carcassonne_names', JSON.stringify(initial));
+        }
+
+        return initial;
     });
+
+
 
     useEffect(() => {
         localStorage.setItem('carcassonne_mode', mode);
@@ -73,12 +110,12 @@ export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame 
         const currentName = names[pId] || '';
 
         if (newType !== 'human') {
-            if (!currentName || currentName.startsWith('Player ') || currentName === 'Computer' || !currentName.endsWith(' (AI)')) {
-                setNames(prev => ({ ...prev, [pId]: getRandomAiName(Object.values(prev)) }));
+            if (!currentName || currentName.startsWith('Player ') || currentName.startsWith('玩家 ') || currentName === 'Computer' || !currentName.includes('(')) {
+                setNames(prev => ({ ...prev, [pId]: getRandomAiName(Object.values(prev), t('startScreen.aiMarker')) }));
             }
         } else {
-            if (currentName.endsWith(' (AI)')) {
-                setNames(prev => ({ ...prev, [pId]: `Player ${pId}` }));
+            if (currentName.includes('(')) {
+                setNames(prev => ({ ...prev, [pId]: t('startScreen.playerPlaceholder', { id: pId }) }));
             }
         }
     };
@@ -96,6 +133,45 @@ export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame 
         onStartGame(filteredNames, filteredTypes);
     };
 
+    const toggleLanguage = () => {
+        const oldLang = i18n.language;
+        const newLang = oldLang === 'en' ? 'zh' : 'en';
+        i18n.changeLanguage(newLang);
+        localStorage.setItem('carcassonne_lang', newLang);
+
+        // Update default names immediately to avoid effect loop check
+        setNames(prev => {
+            const next = { ...prev };
+            let changed = false;
+            Object.keys(next).forEach(key => {
+                const id = parseInt(key, 10);
+                const name = next[id];
+                const type = types[id];
+
+                if (type === 'human') {
+                    const isDefaultHuman =
+                        name === `Player ${id}` ||
+                        name === `玩家 ${id}` ||
+                        name === i18n.t('startScreen.playerPlaceholder', { id, lng: 'en' }) ||
+                        name === i18n.t('startScreen.playerPlaceholder', { id, lng: 'zh' });
+
+                    if (isDefaultHuman) {
+                        next[id] = i18n.t('startScreen.playerPlaceholder', { id, lng: newLang });
+                        changed = true;
+                    }
+                } else {
+                    const oldMarker = oldLang === 'en' ? '(AI)' : '(电脑)';
+                    const newMarker = newLang === 'en' ? '(AI)' : '(电脑)';
+                    if (name.endsWith(oldMarker)) {
+                        next[id] = name.replace(oldMarker, newMarker);
+                        changed = true;
+                    }
+                }
+            });
+            return changed ? next : prev;
+        });
+    };
+
     return (
         <div style={{
             position: 'fixed', inset: 0,
@@ -103,6 +179,41 @@ export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame 
             display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
             color: 'white', fontFamily: 'sans-serif'
         }}>
+            {/* Language Toggle */}
+            <div
+                onClick={toggleLanguage}
+                style={{
+                    position: 'absolute',
+                    top: '20px',
+                    right: '20px',
+                    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                    padding: '8px 12px',
+                    borderRadius: '20px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    backdropFilter: 'blur(10px)',
+                    border: '1px solid rgba(255,255,255,0.2)',
+                    transition: 'all 0.2s',
+                    zIndex: 100
+                }}
+                onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.25)'}
+                onMouseLeave={e => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.15)'}
+            >
+                {i18n.language === 'en' ? (
+                    <>
+                        <EnglishFlag />
+                        <span style={{ fontSize: '13px', fontWeight: '600' }}>English</span>
+                    </>
+                ) : (
+                    <>
+                        <ChinaFlag />
+                        <span style={{ fontSize: '13px', fontWeight: '600' }}>简体中文</span>
+                    </>
+                )}
+            </div>
+
             <div style={{
                 background: 'rgba(255, 255, 255, 0.1)',
                 backdropFilter: 'blur(10px)',
@@ -118,7 +229,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame 
                 justifyContent: isMobile ? 'center' : 'flex-start'
             }}>
                 <h1 style={{ margin: 0, textAlign: 'center', fontSize: '36px', fontWeight: 'bold', textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}>
-                    Carcassonne
+                    {t('startScreen.title')}
                 </h1>
                 <div style={{
                     marginTop: '-16px',
@@ -129,7 +240,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame 
                     letterSpacing: '1px',
                     textShadow: '0 1px 2px rgba(0,0,0,0.3)'
                 }}>
-                    --- 3-tiles-hand
+                    {t('startScreen.subtitle')}
                 </div>
 
                 {/* Mode Selection */}
@@ -145,7 +256,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame 
                             }}
                             onClick={() => setMode('local')}
                         >
-                            Local Game
+                            {t('startScreen.localGame')}
                         </button>
                         <button
                             style={{
@@ -155,9 +266,9 @@ export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame 
                                 cursor: 'not-allowed',
                                 position: 'relative'
                             }}
-                            title="Coming Soon"
+                            title={t('startScreen.comingSoon')}
                         >
-                            Online Game
+                            {t('startScreen.onlineGame')}
                             <span style={{ position: 'absolute', top: 2, right: 4, fontSize: '10px', background: '#e74c3c', color: 'white', padding: '2px 4px', borderRadius: '4px' }}>WIP</span>
                         </button>
                     </div>
@@ -167,7 +278,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame 
                 {mode === 'local' && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                         <div>
-                            <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: '#eee' }}>Number of Players</label>
+                            <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: '#eee' }}>{t('startScreen.numberOfPlayers')}</label>
                             <div style={{ display: 'flex', gap: '10px' }}>
                                 {[2, 3, 4].map(num => (
                                     <button
@@ -182,8 +293,8 @@ export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame 
                                                 }));
                                                 setNames(prev => {
                                                     const newNames = { ...prev };
-                                                    if (!newNames[3]) newNames[3] = getRandomAiName(Object.values(newNames));
-                                                    if (!newNames[4]) newNames[4] = getRandomAiName(Object.values(newNames));
+                                                    if (!newNames[3]) newNames[3] = getRandomAiName(Object.values(newNames), `(${t('startScreen.computer').substring(0, 2)})`);
+                                                    if (!newNames[4]) newNames[4] = getRandomAiName(Object.values(newNames), `(${t('startScreen.computer').substring(0, 2)})`);
                                                     return newNames;
                                                 });
                                             }
@@ -204,7 +315,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame 
                         </div>
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                            <label style={{ display: 'block', fontSize: '14px', color: '#eee' }}>Player Settings</label>
+                            <label style={{ display: 'block', fontSize: '14px', color: '#eee' }}>{t('startScreen.playerSettings')}</label>
                             {Array.from({ length: playerCount }).map((_, idx) => {
                                 const pId = idx + 1;
                                 return (
@@ -223,14 +334,14 @@ export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame 
                                                 cursor: 'pointer',
                                             }}
                                         >
-                                            <option value="human">Human 🙋‍♂️</option>
-                                            <option value="ai-easy">Computer 🤖</option>
+                                            <option value="human">{t('startScreen.human')}</option>
+                                            <option value="ai-easy">{t('startScreen.computer')}</option>
                                         </select>
                                         <input
                                             type="text"
                                             value={names[pId]}
                                             onChange={(e) => setNames({ ...names, [pId]: e.target.value })}
-                                            placeholder={`Player ${pId}`}
+                                            placeholder={t('startScreen.playerPlaceholder', { id: pId })}
                                             style={{
                                                 flex: 1,
                                                 padding: '12px',
@@ -270,7 +381,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame 
                     onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
                     onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
                 >
-                    Start Game
+                    {t('startScreen.startGame')}
                 </button>
 
                 <button
@@ -290,7 +401,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame 
                     onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
                     onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
                 >
-                    How to Play ❔
+                    {t('startScreen.howToPlay')}
                 </button>
             </div>
 
@@ -305,7 +416,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame 
                 fontSize: '12px',
                 fontFamily: 'monospace'
             }}>
-                author: vincent71399
+                {t('startScreen.author')}
             </div>
         </div>
     );

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { TileRenderer } from './TileRenderer';
 import { TILES_MAP } from '../engine/tiles';
 import { PLAYER_COLORS } from '../engine/constants';
@@ -31,16 +32,18 @@ export const TutorialScene: React.FC<TutorialSceneProps> = ({
     handTile,
     showMockUI = false,
     mockHand = [],
-    mockScores = [
-        { name: 'Player 1', score: 42, color: '#e74c3c' },
-        { name: 'Computer', score: 38, color: '#3498db' }
-    ],
+    mockScores,
     extraMeeples = [],
     showStartPreview = false,
     highlightButton = false,
     size = 350,
     isMobile = false
 }) => {
+    const { t } = useTranslation();
+    const scores = mockScores || [
+        { name: t('startScreen.playerPlaceholder', { id: 1 }).replace('{{id}}', '1'), score: 42, color: '#e74c3c' },
+        { name: t('startScreen.computer'), score: 38, color: '#3498db' }
+    ];
     // Determine bounds to center the tiles
     const minX = Math.min(...tiles.map(t => t.x), ...validPlacements.map(p => p.x));
     const maxX = Math.max(...tiles.map(t => t.x), ...validPlacements.map(p => p.x));
@@ -92,7 +95,7 @@ export const TutorialScene: React.FC<TutorialSceneProps> = ({
                                     def={def}
                                     placed={placed}
                                     size={tileSize}
-                                    meeplePlacementMode={!!isMeepleSpot}
+                                    meeplePlacementMode={isMeepleSpot}
                                     animate={false}
                                 />
 
@@ -191,7 +194,7 @@ export const TutorialScene: React.FC<TutorialSceneProps> = ({
                     borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
                     display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px'
                 }}>
-                    <span style={{ fontSize: '10px', fontWeight: 'bold', color: '#666' }}>IN HAND</span>
+                    <span style={{ fontSize: '10px', fontWeight: 'bold', color: '#666' }}>{t('tutorial.inHand')}</span>
                     <TileRenderer def={TILES_MAP[handTile]} size={60} style={{ borderRadius: '4px' }} animate={false} />
                 </div>
             )}
@@ -206,7 +209,7 @@ export const TutorialScene: React.FC<TutorialSceneProps> = ({
                         zIndex: 20, pointerEvents: 'none', transform: 'scale(0.85)', transformOrigin: 'top left',
                         display: 'flex', flexDirection: 'column', gap: '6px'
                     }}>
-                        {mockScores.map((s, i) => (
+                        {scores.map((s, i) => (
                             <div key={i} style={{
                                 fontSize: '12px', fontWeight: '800',
                                 borderLeft: `4px solid ${s.color}`, paddingLeft: '8px',
@@ -244,13 +247,13 @@ export const TutorialScene: React.FC<TutorialSceneProps> = ({
                     <h1 style={{
                         margin: 0, textAlign: 'center', fontSize: '36px', fontWeight: 'bold',
                         textShadow: '0 2px 4px rgba(0,0,0,0.3)', color: 'white'
-                    }}>Carcassonne</h1>
+                    }}>{t('startScreen.title')}</h1>
                     <div style={{
                         padding: '12px 30px', background: '#2ecc71', color: 'white',
                         borderRadius: '8px', fontWeight: 'bold', fontSize: '18px',
                         boxShadow: '0 4px 15px rgba(46, 204, 113, 0.4)', position: 'relative'
                     }}>
-                        START GAME
+                        {t('startScreen.startGame').toUpperCase()}
                         {highlightButton && (
                             <div style={{
                                 position: 'absolute', top: '50%', left: '50%',

@@ -1,6 +1,7 @@
 import React from 'react';
 import type { GameState, PlayerId } from '../engine/types';
 import { TileRenderer } from './TileRenderer';
+import { useTranslation } from 'react-i18next';
 
 // Symmetric tiles where rotation has no functional effect
 const SYMMETRIC_TILES = new Set(['D', 'E', 'T']);
@@ -26,6 +27,7 @@ export const Hand: React.FC<HandProps> = ({
     onRotate,
     isMobile = false
 }) => {
+    const { t } = useTranslation();
     const hand = state.hands[playerId] || [];
     const selectedTile = selectedIndex !== -1 ? hand[selectedIndex] : null;
     const canRotate = selectedIndex !== -1 && selectedTile && !SYMMETRIC_TILES.has(selectedTile.typeId);
@@ -61,7 +63,7 @@ export const Hand: React.FC<HandProps> = ({
                     boxShadow: `0 0 6px ${playerColor}88`,
                 }} />
                 {/* Updated to use playerName */}
-                <h3 style={{ margin: 0, color: '#333' }}>{playerName}'s Hand</h3>
+                <h3 style={{ margin: 0, color: '#333' }}>{t('game.playerHand', { name: playerName })}</h3>
                 <span style={{
                     display: 'inline-block',
                     width: 32, height: 6,
@@ -102,7 +104,7 @@ export const Hand: React.FC<HandProps> = ({
                     boxShadow: '0 4px 10px rgba(0,0,0,0.2)'
                 }}
             >
-                Rotate Selected
+                {t('game.rotateSelected')}
             </button>
         </div>
     );

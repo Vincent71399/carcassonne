@@ -50,7 +50,10 @@ const AUDIO_MAP = {
   monastery: scoreMonastery,
 };
 
+import { useTranslation } from 'react-i18next';
+
 function App() {
+  const { t } = useTranslation();
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [selectedHandIndex, setSelectedHandIndex] = useState(-1);
@@ -536,11 +539,11 @@ function App() {
           overflowY: isScoreboardRetractable ? 'auto' : 'visible'
         }}>
         <h3 style={{ margin: '0 0 10px 0', color: '#333', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px' }}>
-          <span>Scoreboard</span>
+          <span>{t('game.scoreboard')}</span>
           <div style={{ display: 'flex', gap: 4 }}>
             <button
               onClick={() => setShowFieldView(v => !v)}
-              title="Toggle Field Conquer View"
+              title={t('game.toggleFieldView')}
               style={{
                 background: showFieldView ? UI_COLORS.success : 'rgba(0,0,0,0.08)',
                 border: 'none', borderRadius: 6, cursor: 'pointer',
@@ -551,7 +554,7 @@ function App() {
             >🌾</button>
             <button
               onClick={() => setShowDeckViewer(v => !v)}
-              title="Show Remaining Tiles"
+              title={t('game.showRemainingTiles')}
               style={{
                 background: showDeckViewer ? UI_COLORS.primary : 'rgba(0,0,0,0.08)',
                 border: 'none', borderRadius: 6, cursor: 'pointer',
@@ -562,7 +565,7 @@ function App() {
             >🃏</button>
             <button
               onClick={() => setIsMuted(v => !v)}
-              title={isMuted ? "Unmute Sound" : "Mute Sound"}
+              title={isMuted ? t('game.unmuteSound') : t('game.muteSound')}
               style={{
                 background: isMuted ? UI_COLORS.danger : 'rgba(0,0,0,0.08)',
                 border: 'none', borderRadius: 6, cursor: 'pointer',
@@ -578,7 +581,7 @@ function App() {
               <>
                 <button
                   onClick={() => setShowGallery(v => !v)}
-                  title="Toggle Tile Gallery"
+                  title={t('game.toggleTileGallery')}
                   style={{
                     background: showGallery ? UI_COLORS.primary : 'rgba(0,0,0,0.08)',
                     border: 'none', borderRadius: 6, cursor: 'pointer',
@@ -589,12 +592,12 @@ function App() {
                 >🖼️</button>
                 <button
                   onClick={() => setShowSandbox(true)}
-                  title="Open Field Sandbox"
+                  title={t('game.openSandbox')}
                   style={{
                     background: 'rgba(0,0,0,0.08)', border: 'none', borderRadius: 6, cursor: 'pointer',
                     fontSize: 16, padding: '2px 8px', color: '#555'
                   }}
-                >🧪 Sandbox</button>
+                >🧪 {t('game.openSandbox')}</button>
               </>
             )}
 
@@ -618,7 +621,7 @@ function App() {
               fontWeight: isCurrent ? 'bold' : 'normal'
             }}>
               <div>
-                <div style={{ fontSize: '14px', color: '#333' }}>{gameState.playerNames[pid] || `Player ${pid}`}</div>
+                <div style={{ fontSize: '14px', color: '#333' }}>{gameState.playerNames[pid] || t('startScreen.playerPlaceholder', { id: pid })}</div>
                 {/* Score Breakdown display */}
                 <div style={{ fontSize: '11px', color: '#666', marginTop: 2, display: 'flex', gap: 6 }}>
                   <div>🏰 {gameState.midGameScoreBreakdown[pid]?.city + (gameState.endGameScoreBreakdown?.[pid]?.city || 0)}</div>
@@ -834,8 +837,8 @@ function App() {
             }}>
               <span style={{ fontWeight: 'bold', color: hasNoMeeples ? '#c62828' : '#333', fontSize: '14px' }}>
                 {hasNoMeeples
-                  ? `Player ${currentPlayer} has no meeples remaining`
-                  : `Click a spot on the tile to place a meeple`}
+                  ? t('game.noMeeples', { name: gameState.playerNames[currentPlayer] || currentPlayer })
+                  : t('game.placeMeeplePrompt')}
               </span>
               <div style={{ display: 'flex', gap: '10px', width: isMobile ? '100%' : 'auto' }}>
                 <button
@@ -852,7 +855,7 @@ function App() {
                     fontSize: '13px',
                   }}
                 >
-                  Cancel Tile
+                  {t('game.cancelTile')}
                 </button>
                 <button
                   onClick={handleSkipMeeple}
@@ -868,7 +871,7 @@ function App() {
                     fontSize: '13px',
                   }}
                 >
-                  {hasNoMeeples ? 'Continue' : 'Skip (No Meeple)'}
+                  {hasNoMeeples ? t('game.continue') : t('game.skipMeeple')}
                 </button>
               </div>
             </div>
@@ -931,7 +934,7 @@ function App() {
                   padding: '10px 24px', boxShadow: '0 2px 16px rgba(0,0,0,0.5)'
                 }}>
                   <span style={{ color: '#ffd700', fontWeight: 'bold', fontSize: 18 }}>
-                    {winners.length === 1 ? `🏆 Player ${winners[0]} Wins!` : `🤝 Tie`}
+                    {winners.length === 1 ? t('game.playerWins', { name: gameState.playerNames[winners[0]] || winners[0] }) : t('game.tie')}
                     {gameState.players.map(p => (
                       <span key={p} style={{ marginLeft: 16, fontSize: 14, color: PLAYER_COLORS[p] || '#fff' }}>
                         P{p}: {gameState.scores[p] || 0}pts
@@ -956,8 +959,8 @@ function App() {
                   zIndex: 1000, fontFamily: 'sans-serif'
                 }}>
                   <div style={{ fontSize: 64, marginBottom: 12 }}>🏰</div>
-                  <h1 style={{ color: '#ffd700', fontSize: 36, margin: '0 0 4px', textShadow: '0 2px 12px rgba(255,215,0,0.6)' }}>Game Over!</h1>
-                  <p style={{ color: '#aaa', margin: '0 0 32px', fontSize: 16 }}>All tiles placed — final scores are in!</p>
+                  <h1 style={{ color: '#ffd700', fontSize: 36, margin: '0 0 4px', textShadow: '0 2px 12px rgba(255,215,0,0.6)' }}>{t('game.gameOverTitle')}</h1>
+                  <p style={{ color: '#aaa', margin: '0 0 32px', fontSize: 16 }}>{t('game.gameOverSubtitle')}</p>
 
                   {/* Winner banner */}
                   <div style={{
@@ -966,7 +969,7 @@ function App() {
                     boxShadow: '0 4px 24px rgba(255,165,0,0.4)'
                   }}>
                     <span style={{ fontSize: 20, fontWeight: 'bold', color: '#1a1a1a' }}>
-                      {winners.length === 1 ? `🏆 Player ${winners[0]} Wins!` : `🤝 Tie: ${winners.map(p => `Player ${p}`).join(' & ')}`}
+                      {winners.length === 1 ? t('game.playerWins', { name: gameState.playerNames[winners[0]] || winners[0] }) : `${t('game.tie')}: ${winners.map(p => gameState.playerNames[p] || p).join(' & ')}`}
                     </span>
                   </div>
 
@@ -974,10 +977,10 @@ function App() {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 16, width: '100%', maxWidth: 480, marginBottom: 36 }}>
                     {(() => {
                       const CATS = [
-                        { key: 'city' as const, label: 'Cities', color: '#c9a84c', midColor: '#e8cfa0' },
-                        { key: 'road' as const, label: 'Roads', color: '#9e9e9e', midColor: '#cfcfcf' },
-                        { key: 'monastery' as const, label: 'Monasteries', color: FEATURE_COLORS.monastery, midColor: '#f08080' },
-                        { key: 'field' as const, label: 'Fields', color: FEATURE_COLORS.field, midColor: '#90c994' },
+                        { key: 'city' as const, label: t('game.categories.city'), color: '#c9a84c', midColor: '#e8cfa0' },
+                        { key: 'road' as const, label: t('game.categories.road'), color: '#9e9e9e', midColor: '#cfcfcf' },
+                        { key: 'monastery' as const, label: t('game.categories.monastery'), color: FEATURE_COLORS.monastery, midColor: '#f08080' },
+                        { key: 'field' as const, label: t('game.categories.field'), color: FEATURE_COLORS.field, midColor: '#90c994' },
                       ];
                       return sortedPlayers.map((pid, rank) => {
                         const total = gameState.scores[pid] || 0;
@@ -993,7 +996,7 @@ function App() {
                             padding: '12px 16px',
                           }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                              <span style={{ color: '#eee', fontSize: 15 }}>{medals[rank] || '  '} Player {pid}</span>
+                              <span style={{ color: '#eee', fontSize: 15 }}>{medals[rank] || '  '} {gameState.playerNames[pid] || t('startScreen.playerPlaceholder', { id: pid })}</span>
                               <span style={{ color: '#ffd700', fontWeight: 'bold', fontSize: 18 }}>{total} pts</span>
                             </div>
                             {/* Stacked bar */}
@@ -1003,7 +1006,7 @@ function App() {
                                 const pts = midBreakdown[cat.key] || 0;
                                 if (pts === 0) return null;
                                 return (
-                                  <div key={`mid-${cat.key}`} title={`Mid-game ${cat.label}: ${pts}pts`} style={{
+                                  <div key={`mid-${cat.key}`} title={`${t('game.midGame')} ${cat.label}: ${pts}pts`} style={{
                                     width: `${(pts / maxScore) * 100}%`,
                                     background: cat.midColor, minWidth: 2,
                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -1030,7 +1033,7 @@ function App() {
                               {midBreakdown && CATS.map(cat => {
                                 const pts = midBreakdown[cat.key] || 0;
                                 if (pts === 0) return null;
-                                return <span key={`mid-${cat.key}`} style={{ fontSize: 11, background: cat.midColor, borderRadius: 10, padding: '2px 7px', color: '#333' }}>Mid {cat.label} {pts}</span>;
+                                return <span key={`mid-${cat.key}`} style={{ fontSize: 11, background: cat.midColor, borderRadius: 10, padding: '2px 7px', color: '#333' }}>{t('game.midGame')} {cat.label} {pts}</span>;
                               })}
                               {breakdown && CATS.map(cat => {
                                 const pts = breakdown[cat.key] || 0;
@@ -1058,7 +1061,7 @@ function App() {
                       onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.2)'; e.currentTarget.style.color = '#fff'; }}
                       onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; e.currentTarget.style.color = '#ddd'; }}
                     >
-                      View Field Conquest
+                      {t('game.viewFieldConquest')}
                     </button>
                     <button
                       onClick={() => {
@@ -1078,7 +1081,7 @@ function App() {
                       onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.06)')}
                       onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
                     >
-                      Play Again
+                      {t('game.playAgain')}
                     </button>
                     <button
                       onClick={() => {
@@ -1097,7 +1100,7 @@ function App() {
                       onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; e.currentTarget.style.color = '#fff'; }}
                       onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = '#bbb'; }}
                     >
-                      Back to Main Menu
+                      {t('game.backToMainMenu')}
                     </button>
                   </div>
                 </div>
@@ -1126,7 +1129,7 @@ function App() {
             fontFamily: 'sans-serif'
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 30 }}>
-              <h2 style={{ color: '#333', margin: 0 }}>Tile Gallery (Field Coverage Verification)</h2>
+              <h2 style={{ color: '#333', margin: 0 }}>{t('game.tileGalleryTitle')}</h2>
               <div style={{ display: 'flex', gap: 16 }}>
                 <button
                   onClick={() => setShowFieldView(v => !v)}
@@ -1204,7 +1207,7 @@ function App() {
                         });
                       })()}
                     </div>
-                    <h4 style={{ margin: '8px 0 0', color: '#555' }}>Tile {def.typeId}</h4>
+                    <h4 style={{ margin: '8px 0 0', color: '#555' }}>{t('game.tileId', { id: def.typeId })}</h4>
                   </div>
                 );
               })}
@@ -1233,7 +1236,7 @@ function App() {
           height: 44,
           pointerEvents: 'auto'
         }}
-        title="Quit to Main Menu"
+        title={t('game.quitToMainMenu')}
         onClick={(e) => {
           e.stopPropagation();
           setShowQuitConfirm(true);
@@ -1272,7 +1275,7 @@ function App() {
               height: 44,
               pointerEvents: 'auto'
             }}
-            title="Enter Fullscreen"
+            title={t('game.enterFullscreen')}
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M15 3h6v6M9 21H3v-6M21 15v6h-6M3 9V3h6" />
@@ -1305,10 +1308,10 @@ function App() {
             }}>
               <div style={{ fontSize: '48px' }}>🏰</div>
               <h2 style={{ margin: 0, fontSize: '24px', color: '#f1c40f', textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}>
-                Quit Game?
+                {t('tutorial.quitTitle')}
               </h2>
               <p style={{ margin: 0, lineHeight: '1.5', color: '#ecf0f1', fontSize: '16px' }}>
-                Are you sure you want to leave the current game? All progress will be lost.
+                {t('tutorial.quitContent')}
               </p>
               <div style={{ display: 'flex', gap: '12px' }}>
                 <button
@@ -1320,7 +1323,7 @@ function App() {
                     cursor: 'pointer', fontWeight: 'bold'
                   }}
                 >
-                  Stay
+                  {t('tutorial.stay')}
                 </button>
                 <button
                   onClick={() => {
@@ -1338,7 +1341,7 @@ function App() {
                     boxShadow: '0 4px 15px rgba(231, 76, 60, 0.3)'
                   }}
                 >
-                  Quit
+                  {t('tutorial.quit')}
                 </button>
               </div>
             </div>

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { TutorialScene } from './TutorialScene';
 import type { PlayerId, PlacedTile } from '../engine/types';
 
@@ -26,10 +27,12 @@ interface StepDefinition {
     };
 }
 
-const STEPS: StepDefinition[] = [
+import type { TFunction } from 'i18next';
+
+const getSteps = (t: TFunction): StepDefinition[] => [
     {
-        title: "Welcome to Carcassonne",
-        content: "Carcassonne is a tile-placement game where players build a medieval landscape. Your goal is to score the most points by strategically placing tiles and your followers, called 'Meeples'.",
+        title: t('tutorial.welcomeTitle'),
+        content: t('tutorial.welcomeContent'),
         scene: {
             tiles: [
                 { id: 't1', typeId: 'Start', x: 0, y: 0, rotation: 0, meeples: [] },
@@ -41,8 +44,8 @@ const STEPS: StepDefinition[] = [
         }
     },
     {
-        title: "Placing Tiles",
-        content: "Edges must match: road to road, city to city, and field to field. The green squares show where your current tile (in the corner) can be placed correctly.",
+        title: t('tutorial.placingTilesTitle'),
+        content: t('tutorial.placingTilesContent'),
         scene: {
             tiles: [
                 { id: 't1', typeId: 'Start', x: 0, y: 0, rotation: 0, meeples: [] },
@@ -55,8 +58,8 @@ const STEPS: StepDefinition[] = [
         }
     },
     {
-        title: "Deploying Meeples",
-        content: "After placing a tile, you can place a Meeple to 'claim' a feature. They help you control roads and cities. Notice the meeple in the corner waiting to be deployed to a blinking spot!",
+        title: t('tutorial.deployingMeeplesTitle'),
+        content: t('tutorial.deployingMeeplesContent'),
         scene: {
             tiles: [
                 { id: 't1', typeId: 'Start', x: 0, y: 0, rotation: 0, meeples: [] },
@@ -68,8 +71,8 @@ const STEPS: StepDefinition[] = [
         }
     },
     {
-        title: "Scoring Points",
-        content: "Once a feature is completed (like this enclosed city), you get your Meeple back and score points immediately. A big city like this is worth 2 points per tile!",
+        title: t('tutorial.scoringPointsTitle'),
+        content: t('tutorial.scoringPointsContent'),
         scene: {
             tiles: [
                 { id: 't1', typeId: 'G', x: 0, y: -1, rotation: 2, meeples: [] },
@@ -80,12 +83,12 @@ const STEPS: StepDefinition[] = [
                 },
                 { id: 't3', typeId: 'G', x: 0, y: 1, rotation: 0, meeples: [] }
             ],
-            scoreUpdate: { x: 0, y: 0, points: 6, text: 'CITY COMPLETE' }
+            scoreUpdate: { x: 0, y: 0, points: 6, text: t('game.cityComplete') }
         }
     },
     {
-        title: "The Power of Farmers",
-        content: "Farmers stay on fields until the end of the game. They score 3 points for every completed city in their field! The stripes show the field territory controlled by a player.",
+        title: t('tutorial.powerOfFarmersTitle'),
+        content: t('tutorial.powerOfFarmersContent'),
         scene: {
             tiles: [
                 { id: 't1', typeId: 'G', x: -1, y: 0, rotation: 1, meeples: [] },
@@ -103,8 +106,8 @@ const STEPS: StepDefinition[] = [
         }
     },
     {
-        title: "Ready to Play?",
-        content: "The game ends when the deck is empty. High score wins! Simply click 'Start Game' on the home screen to begin your adventure.",
+        title: t('tutorial.readyToPlayTitle'),
+        content: t('tutorial.readyToPlayContent'),
         scene: {
             tiles: [],
             showStartPreview: true,
@@ -114,6 +117,8 @@ const STEPS: StepDefinition[] = [
 ];
 
 export const TutorialModal: React.FC<TutorialModalProps> = ({ isMobile, onClose }) => {
+    const { t } = useTranslation();
+    const STEPS = getSteps(t);
     const [currentStep, setCurrentStep] = useState(0);
     const step = STEPS[currentStep];
 
@@ -225,7 +230,7 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({ isMobile, onClose 
                                     cursor: 'pointer', fontWeight: 'bold'
                                 }}
                             >
-                                Back
+                                {t('tutorial.back')}
                             </button>
                         )}
                         <button
@@ -237,7 +242,7 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({ isMobile, onClose 
                                 boxShadow: '0 4px 15px rgba(52, 152, 219, 0.3)'
                             }}
                         >
-                            {currentStep === STEPS.length - 1 ? "Let's Play!" : "Next"}
+                            {currentStep === STEPS.length - 1 ? t('tutorial.letsPlay') : t('tutorial.next')}
                         </button>
                     </div>
                 </div>

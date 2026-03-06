@@ -1,4 +1,5 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { GameState, PlayerId, PlacedTile } from '../engine/types';
 import { TileRenderer } from './TileRenderer';
 import { TILES_MAP } from '../engine/tiles';
@@ -36,11 +37,12 @@ interface BoardProps {
 
 
 export const Board: React.FC<BoardProps> = ({ state, pan, setPan, zoom, setZoom, isMobile = false, validPlacements = [], meepleTilePosition, onTileClick, onPlacementClick, onFeatureClick, disabledHotspots = [], fieldConquest, allTilesInteractive = false, sandboxMode = false, onContextMenu, focusTarget }) => {
+    const { t } = useTranslation();
     const isDraggingRef = useRef(false);
-    const [isDragging, setIsDragging] = React.useState(false);
+    const [isDragging, setIsDragging] = useState(false);
     const lastPan = useRef({ x: 0, y: 0 });
 
-    const handleSetPan = React.useCallback((updater: { x: number, y: number } | ((p: { x: number, y: number }) => { x: number, y: number })) => {
+    const handleSetPan = useCallback((updater: { x: number, y: number } | ((p: { x: number, y: number }) => { x: number, y: number })) => {
         setPan(updater);
     }, [setPan]);
 
@@ -205,9 +207,9 @@ export const Board: React.FC<BoardProps> = ({ state, pan, setPan, zoom, setZoom,
                                                 {/* Mask: white = draw stripe, black = hide (roads/cities/monastery) */}
                                                 <mask id={maskId}>
                                                     <rect width="100" height="100" fill="white" />
-                                                    {cityPaths.map((d, i) => <path key={`c${i} `} d={d} fill="black" />)}
+                                                    {cityPaths.map((d, i) => <path key={`c${i}`} d={d} fill="black" />)}
                                                     {roadPaths.map((d, i) => (
-                                                        <path key={`r${i} `} d={d} fill="none" stroke="black" strokeWidth="12" strokeLinecap="round" />
+                                                        <path key={`r${i}`} d={d} fill="none" stroke="black" strokeWidth="12" strokeLinecap="round" />
                                                     ))}
                                                     {hasMonastery && <circle cx="50" cy="50" r="24" fill="black" />}
                                                 </mask>
@@ -271,7 +273,7 @@ export const Board: React.FC<BoardProps> = ({ state, pan, setPan, zoom, setZoom,
                     const avgY = count > 0 ? (sumY / count) * 100 : 0;
                     return (
                         <div
-                            key={`score - ${state.scoreUpdateKey ?? i} -${update.completedComponentIds[0] ?? i} `}
+                            key={`score-${state.scoreUpdateKey ?? i}-${update.completedComponentIds[0] ?? i}`}
                             style={{
                                 position: 'absolute',
                                 left: avgX,
@@ -296,7 +298,7 @@ export const Board: React.FC<BoardProps> = ({ state, pan, setPan, zoom, setZoom,
                                     +{update.points}
                                 </span>
                                 <span style={{ fontSize: '14px', color: '#424242', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                                    {update.featureName}
+                                    {t(update.featureName, update.featureData)}
                                 </span>
                                 {update.returnedMeeples.length > 0 && (
                                     <div style={{ display: 'flex', gap: '6px', marginTop: '4px' }}>

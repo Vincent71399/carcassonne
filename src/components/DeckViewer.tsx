@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import type { TileDefinition } from '../engine/types';
 import { TileRenderer } from './TileRenderer';
 import { BASE_TILES, TILES_MAP } from '../engine/tiles';
@@ -14,6 +15,7 @@ const ALL_TILE_TYPES: TileDefinition[] = BASE_TILES.filter(
 );
 
 export const DeckViewer: React.FC<DeckViewerProps> = ({ deck, onClose }) => {
+    const { t } = useTranslation();
     // Count remaining tiles per typeId in the deck
     const remainingByType: Record<string, number> = {};
     for (const t of deck) {
@@ -49,9 +51,9 @@ export const DeckViewer: React.FC<DeckViewerProps> = ({ deck, onClose }) => {
                 {/* Header */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
                     <div>
-                        <h2 style={{ margin: 0, color: '#ffd700', fontSize: 22 }}>🃏 Remaining Deck</h2>
+                        <h2 style={{ margin: 0, color: '#ffd700', fontSize: 22 }}>🃏 {t('deckViewer.title')}</h2>
                         <p style={{ margin: '4px 0 0', color: '#aaa', fontSize: 13 }}>
-                            {deck.length} tile{deck.length !== 1 ? 's' : ''} remaining
+                            {t('deckViewer.remaining', { count: deck.length })}
                         </p>
                     </div>
                     <button

@@ -64,7 +64,8 @@ export interface PlacedMeeple {
 export interface ScoreUpdate {
     players: PlayerId[];
     points: number;
-    featureName: string;
+    featureName: string; // This will now be a translation key
+    featureData?: Record<string, string | number | boolean>; // For parameters like { count: 3 }
     category: 'city' | 'road' | 'monastery' | 'field';
     returnedMeeples: PlacedMeeple[];
     completedComponentIds: string[]; // "x,y,featureId"

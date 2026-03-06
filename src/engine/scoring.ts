@@ -18,7 +18,7 @@ export function checkAndScoreFeatures(state: GameState): ScoreUpdate[] {
     const scoredFeatures = new Set<string>(); // avoid double scoring if we traverse from different angles
 
     // Helper to process a scored feature
-    const processFeature = (evaluation: ReturnType<typeof evaluateFeature>, featureName: string, pointsPerTile: number, booleanPennants = false) => {
+    const processFeature = (evaluation: ReturnType<typeof evaluateFeature>, featureName: string, pointsPerTile: number, booleanPennants = false, featureData?: Record<string, string | number | boolean>) => {
         if (!evaluation.isComplete) return;
 
         // Create a unique key for this completed feature (sort the component IDs)
@@ -91,9 +91,10 @@ export function checkAndScoreFeatures(state: GameState): ScoreUpdate[] {
                 players: winners,
                 points,
                 featureName,
-                category: featureName.toLowerCase().startsWith('city') ? 'city'
-                    : featureName.toLowerCase().startsWith('road') ? 'road'
-                        : featureName.toLowerCase().startsWith('monastery') ? 'monastery' : 'field',
+                featureData,
+                category: featureName.toLowerCase().includes('city') ? 'city'
+                    : featureName.toLowerCase().includes('road') ? 'road'
+                        : featureName.toLowerCase().includes('monastery') ? 'monastery' : 'field',
                 returnedMeeples: returned,
                 completedComponentIds: componentIds
             });
@@ -105,7 +106,7 @@ export function checkAndScoreFeatures(state: GameState): ScoreUpdate[] {
         def.cityConnections.forEach((_, idx) => {
             const evalResult = evaluateFeature(state.board, x, y, 'city', idx);
             // 2 points per tile and 2 per pennant for completed cities
-            processFeature(evalResult, 'City', 2, true);
+            processFeature(evalResult, 'game.city', 2, true);
         });
     }
 
@@ -114,14 +115,14 @@ export function checkAndScoreFeatures(state: GameState): ScoreUpdate[] {
         def.roadConnections.forEach((_, idx) => {
             const evalResult = evaluateFeature(state.board, x, y, 'road', idx);
             // 1 point per tile for roads
-            processFeature(evalResult, 'Road', 1, false);
+            processFeature(evalResult, 'game.road', 1, false);
         });
     }
 
     // 3. Check Monastery (if this tile is a monastery)
     if (def.monastery) {
         const evalResult = evaluateMonastery(state.board, x, y);
-        processFeature(evalResult, 'Monastery', 1, false); // 1 point per tile (9 total)
+        processFeature(evalResult, 'game.monastery', 1, false); // 1 point per tile (9 total)
     }
 
     // 4. Check neighboring Monasteries (placing this tile might have completed an adjacent monastery)
@@ -135,7 +136,7 @@ export function checkAndScoreFeatures(state: GameState): ScoreUpdate[] {
                 const nDef = TILES_MAP[nTile.typeId];
                 if (nDef && nDef.monastery) {
                     const evalResult = evaluateMonastery(state.board, nx, ny);
-                    processFeature(evalResult, 'Monastery', 1, false);
+                    processFeature(evalResult, 'game.monastery', 1, false);
                 }
             }
         }
@@ -170,7 +171,8 @@ export function scoreEndGame(state: GameState): ScoreUpdate[] {
         category: 'city' | 'road' | 'monastery' | 'field',
         pointsOverride?: number,
         meeplesOverride?: { meeple: PlacedMeeple, tileKey: string }[],
-        componentIdsOverride?: string[]
+        componentIdsOverride?: string[],
+        featureData?: Record<string, string | number | boolean>
     ) => {
         if (!evaluation && !meeplesOverride) return;
 
@@ -224,6 +226,7 @@ export function scoreEndGame(state: GameState): ScoreUpdate[] {
             players: winners,
             points,
             featureName,
+            featureData,
             category,
             returnedMeeples: meeplesOnFeature.map(m => m.meeple),
             completedComponentIds: componentIds,
@@ -247,13 +250,13 @@ export function scoreEndGame(state: GameState): ScoreUpdate[] {
         // Incomplete cities (1pt/tile + 1pt/pennant)
         def.cityConnections?.forEach((_, idx) => {
             const ev = evaluateFeature(state.board, tile.x, tile.y, 'city', idx);
-            if (!ev.isComplete) buildUpdate(ev, 'City (partial)', 'city');
+            if (!ev.isComplete) buildUpdate(ev, 'game.cityPartial', 'city');
         });
 
         // Incomplete roads (1pt/tile)
         def.roadConnections?.forEach((_, idx) => {
             const ev = evaluateFeature(state.board, tile.x, tile.y, 'road', idx);
-            if (!ev.isComplete) buildUpdate(ev, 'Road (partial)', 'road');
+            if (!ev.isComplete) buildUpdate(ev, 'game.roadPartial', 'road');
         });
 
         // Incomplete monasteries (1pt/present tile)
@@ -263,7 +266,7 @@ export function scoreEndGame(state: GameState): ScoreUpdate[] {
                 const monk = tile.meeples.find(m => m.featureId === 'monastery-0');
                 if (monk) {
                     const compIds = ev.components.map(c => `${c.tileX},${c.tileY},${c.featureId}`).sort();
-                    buildUpdate(null, 'Monastery (partial)', 'monastery',
+                    buildUpdate(null, 'game.monasteryPartial', 'monastery',
                         ev.components.length,
                         [{ meeple: monk, tileKey }],
                         compIds
@@ -324,8 +327,8 @@ export function scoreEndGame(state: GameState): ScoreUpdate[] {
             const farmPts = adjacentCityKeys.size * 3;
             if (farmPts === 0) continue;
 
-            buildUpdate(null, `Farm (${adjacentCityKeys.size} cities)`, 'field',
-                farmPts, farmersOnField, [fieldKey]);
+            buildUpdate(null, 'game.farmWithCities', 'field',
+                farmPts, farmersOnField, [fieldKey], { count: adjacentCityKeys.size });
         }
     }
 
