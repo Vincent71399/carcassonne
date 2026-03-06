@@ -473,7 +473,7 @@ function App() {
 
   return (
     <div
-      style={{ width: '100vw', height: '100vh', overflow: 'hidden', margin: 0, padding: 0, position: 'relative' }}
+      style={{ width: '100vw', height: '100vh', overflow: 'hidden', margin: 0, padding: 0, position: 'relative', overscrollBehavior: 'none' }}
       onClick={() => {
         if (useRetractableUI && gameState.turnPhase !== 'PlaceTile' && gameState.turnPhase !== 'PlaceMeeple') {
           setIsScoreboardExpanded(false);
