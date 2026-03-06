@@ -1,9 +1,9 @@
 import { createInitialState } from './src/engine/state';
-import { getValidPlacements, isValidPlacement } from './src/engine/board';
+import { isValidPlacement } from './src/engine/board';
 import { BASE_TILES } from './src/engine/tiles';
 
 console.log('--- Simulating Tile G and U Placements ---');
-const state = createInitialState(['P1', 'P2']);
+const state = createInitialState({ 1: 'P1', 2: 'P2' }, { 1: 'human', 2: 'human' });
 
 const tileU = BASE_TILES.find(t => t.typeId === 'U')!;
 const tileG = BASE_TILES.find(t => t.typeId === 'G')!;

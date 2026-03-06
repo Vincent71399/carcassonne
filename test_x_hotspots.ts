@@ -1,4 +1,4 @@
-import { BASE_TILES, TILES_MAP } from './src/engine/tiles';
+import { TILES_MAP } from './src/engine/tiles';
 
 const tileX = TILES_MAP['X'];
 console.log('Tile X:', JSON.stringify(tileX, null, 2));

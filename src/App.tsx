@@ -5,7 +5,6 @@ import { DeckViewer } from './components/DeckViewer';
 import { createInitialState, placeTile, placeMeeple, skipMeeple, finishScoring, advanceTurn } from './engine/state';
 import { calculateBestAIMove } from './engine/ai';
 import { PLAYER_COLORS, FEATURE_COLORS, UI_COLORS, DEBUG_MODE } from './engine/constants';
-import type { GameState } from './engine/types';
 import { getValidPlacements } from './engine/board';
 import { BASE_TILES } from './engine/tiles';
 import { TileRenderer } from './components/TileRenderer';
@@ -13,6 +12,19 @@ import { computeFieldConquest, getCityMaskPaths, getRoadMaskPaths } from './engi
 import { FieldSandbox } from './components/FieldSandbox';
 import { StartScreen } from './components/StartScreen';
 import { getOccupiedFeaturesOnTile } from './engine/features';
+import type { GameState, PlayerId, PlayerType } from './engine/types';
+
+interface VendorDocument extends Document {
+  mozCancelFullScreen?: () => Promise<void>;
+  webkitExitFullscreen?: () => Promise<void>;
+  msExitFullscreen?: () => Promise<void>;
+}
+
+interface VendorElement extends HTMLElement {
+  mozRequestFullScreen?: () => Promise<void>;
+  webkitRequestFullScreen?: () => Promise<void>;
+  msRequestFullScreen?: () => Promise<void>;
+}
 import scoreCity from './assets/score_city.mp3';
 import scoreField from './assets/score_field.mp3';
 import scoreRoad from './assets/score_road.mp3';
@@ -54,7 +66,7 @@ function App() {
   const [zoom, setZoom] = useState(1);
 
   // We need to remember what the AI decided to do with its meeple when it calculated the tile placement
-  const [pendingAIMove, setPendingAIMove] = useState<any>(null);
+  const [pendingAIMove, setPendingAIMove] = useState<{ meeplePlacement?: { featureId: string } } | null>(null);
   const [aiFocusTarget, setAiFocusTarget] = useState<{ x: number, y: number } | null>(null);
 
   const [showDeckViewer, setShowDeckViewer] = useState(false);
@@ -99,27 +111,31 @@ function App() {
 
     if (isMobileOrIPad) {
       if (gameState) {
-        const doc = window.document.documentElement;
-        const requestFullScreen = doc.requestFullscreen || (doc as any).mozRequestFullScreen || (doc as any).webkitRequestFullScreen || (doc as any).msRequestFullscreen;
+        const doc = window.document.documentElement as VendorElement;
+        const requestFullScreen = doc.requestFullscreen || doc.mozRequestFullScreen || doc.webkitRequestFullScreen || doc.msRequestFullScreen;
 
         if (requestFullScreen) {
-          requestFullScreen.call(doc).catch(err => {
-            console.warn(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
+          requestFullScreen.call(doc).catch((err: unknown) => {
+            const message = err instanceof Error ? err.message : String(err);
+            const name = err instanceof Error ? err.name : 'Error';
+            console.warn(`Error attempting to enable full-screen mode: ${message} (${name})`);
           });
         }
       } else {
         // Exit fullscreen when returning to start screen
-        const doc = window.document;
-        const exitFullScreen = doc.exitFullscreen || (doc as any).mozCancelFullScreen || (doc as any).webkitExitFullscreen || (doc as any).msExitFullscreen;
+        const doc = window.document as VendorDocument;
+        const exitFullScreen = doc.exitFullscreen || doc.mozCancelFullScreen || doc.webkitExitFullscreen || doc.msExitFullscreen;
 
         if (exitFullScreen && doc.fullscreenElement) {
-          exitFullScreen.call(doc).catch(err => {
-            console.warn(`Error attempting to exit full-screen mode: ${err.message} (${err.name})`);
+          exitFullScreen.call(doc).catch((err: unknown) => {
+            const message = err instanceof Error ? err.message : String(err);
+            const name = err instanceof Error ? err.name : 'Error';
+            console.warn(`Error attempting to exit full-screen mode: ${message} (${name})`);
           });
         }
       }
     }
-  }, [!!gameState, isMobile]);
+  }, [gameState, isMobile]);
 
   useEffect(() => {
     if (gameState?.turnPhase === 'Score' && gameState?.scoreUpdates?.length) {
@@ -141,7 +157,7 @@ function App() {
       }, 3000);
       return () => clearTimeout(timer);
     }
-  }, [gameState?.scoreUpdateKey]); // Re-fires for EVERY new pop-up (key increments per served update)
+  }, [gameState?.scoreUpdateKey, gameState?.scoreUpdates, gameState?.turnPhase, isMuted]); // Re-fires for EVERY new pop-up (key increments per served update)
 
   // Turn Change Delay (if no scoring occurred)
   useEffect(() => {
@@ -208,7 +224,7 @@ function App() {
     })();
 
     return () => { active = false; };
-  }, [gameState?.turnPhase, gameState?.currentPlayerIndex]);
+  }, [gameState, pendingAIMove?.meeplePlacement]);
 
   // Centralized Board Boundary Enforcement
   useEffect(() => {
@@ -232,16 +248,20 @@ function App() {
     const limitYMin = overlap - halfH - (maxY * 100 + 50) * zoom;
     const limitYMax = halfH - overlap - (minY * 100 - 50) * zoom;
 
-    const clampedX = Math.min(Math.max(pan.x, limitXMin), limitXMax);
-    const clampedY = Math.min(Math.max(pan.y, limitYMin), limitYMax);
-
-    if (clampedX !== pan.x || clampedY !== pan.y) {
-      setPan({ x: clampedX, y: clampedY });
-    }
-  }, [gameState?.board, zoom, windowSize, pan.x, pan.y]);
+    requestAnimationFrame(() => {
+      setPan(prevPan => {
+        const clampedX = Math.min(Math.max(prevPan.x, limitXMin), limitXMax);
+        const clampedY = Math.min(Math.max(prevPan.y, limitYMin), limitYMax);
+        if (clampedX !== prevPan.x || clampedY !== prevPan.y) {
+          return { x: clampedX, y: clampedY };
+        }
+        return prevPan;
+      });
+    });
+  }, [gameState, zoom, windowSize]);
 
   if (!gameState) {
-    return <StartScreen isMobile={isMobile} onStartGame={(names, types) => setGameState(createInitialState(names, types))} />;
+    return <StartScreen isMobile={isMobile} onStartGame={(names: Record<PlayerId, string>, types: Record<PlayerId, PlayerType>) => setGameState(createInitialState(names, types))} />;
   }
 
   const currentPlayer = gameState.players[gameState.currentPlayerIndex];

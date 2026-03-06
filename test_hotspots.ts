@@ -1,5 +1,5 @@
 import { BASE_TILES } from './src/engine/tiles';
-import type { TileDefinition, EdgeDirection } from './src/engine/types';
+import type { TileDefinition } from './src/engine/types';
 
 // Let's duplicate computeHotspots logic from TileRenderer here without React imports
 const TILE_FIELD_REGIONS: Record<string, { id: string }[]> = {

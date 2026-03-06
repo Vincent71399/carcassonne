@@ -1,7 +1,7 @@
 import { createInitialState } from './src/engine/state';
 import { scoreEndGame } from './src/engine/scoring';
 
-const state = createInitialState([1, 2]);
+const state = createInitialState({ 1: 'P1', 2: 'P2' }, { 1: 'human', 2: 'human' });
 state.deck = [];
 state.board = {};
 

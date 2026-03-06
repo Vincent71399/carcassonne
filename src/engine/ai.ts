@@ -36,7 +36,7 @@ function calculateFinalScore(
 ): number {
     let finalScore = impact.selfGain * AI_CONSTANTS.EASY.SELF_WEIGHT;
 
-    for (const [_, delta] of Object.entries(impact.opponentDelta)) {
+    for (const delta of Object.values(impact.opponentDelta)) {
         // The Computer AI doesn't heavily weigh opponents, but it respects the constant
         finalScore -= delta * AI_CONSTANTS.EASY.OPPONENT_WEIGHT;
     }

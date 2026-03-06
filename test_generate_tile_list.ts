@@ -1,26 +1,11 @@
-import fs from 'fs';
-import path from 'path';
+import * as fs from 'fs';
 import { BASE_TILES } from './src/engine/tiles';
-import React from 'react';
-import { renderToString } from 'react-dom/server';
-import { TileRenderer } from './src/components/TileRenderer';
+import type { TileDefinition } from './src/engine/types';
 
-// We need a script to generate a markdown table with data URIs of the SVGs
-// Since TileRenderer uses React, we can render it to a static SVG string.
-
-function renderTileSvg(def: any): string {
-    const placed = { id: 'temp', typeId: def.typeId, x: 0, y: 0, rotation: 0, meeples: [] };
-    const svgComponent = React.createElement(TileRenderer, { def, placed, interactive: false });
-    const svgString = renderToString(svgComponent);
-    // The component wrapper is a div with a transform. We want the inner SVG.
-    // It's tricky to extract just the SVG from the rendered div string simply.
-    // Let's just create a raw SVG string for the markdown embedding.
-
-    // Instead of full React rendering which requires a DOM or specific setup,
-    // let's just make a table with descriptions. The user just asked for "tile image and amount".
-    // I will write a simple test script to just output the markdown.
-    return '';
-}
+/**
+ * This script generates a markdown table (tile_list.md) summarizing all tiles in the base set.
+ * It's useful for verifying the deck composition against official rules.
+ */
 
 const tableHeader = `
 | Tile ID | Count | Description (Edges Top-Right-Bottom-Left) | Special Features |
@@ -29,20 +14,33 @@ const tableHeader = `
 let tableBody = '';
 let totalCount = 0;
 
-BASE_TILES.forEach(def => {
+BASE_TILES.forEach((def: TileDefinition) => {
     totalCount += def.count;
 
+    const getEdgeName = (edge: [string, string, string]) => {
+        if (edge[0] === 'city') return 'City';
+        if (edge[1] === 'road') return 'Road';
+        return 'Field';
+    };
+
     const edges = [
-        def.edges.top[0] === 'city' ? 'City' : def.edges.top[1] === 'road' ? 'Road' : 'Field',
-        def.edges.right[0] === 'city' ? 'City' : def.edges.right[1] === 'road' ? 'Road' : 'Field',
-        def.edges.bottom[0] === 'city' ? 'City' : def.edges.bottom[1] === 'road' ? 'Road' : 'Field',
-        def.edges.left[0] === 'city' ? 'City' : def.edges.left[1] === 'road' ? 'Road' : 'Field'
+        getEdgeName(def.edges.top),
+        getEdgeName(def.edges.right),
+        getEdgeName(def.edges.bottom),
+        getEdgeName(def.edges.left)
     ].join(' - ');
 
     const special = [];
     if (def.monastery) special.push('Monastery');
     if (def.pennants) special.push(`${def.pennants} Pennant(s)`);
-    if (def.typeId === 'S' || def.typeId === 'W' || def.typeId === 'X') special.push('Crossroad');
+
+    // Detect junctions: 3 or more road edges that aren't all connected as one road
+    const roadEdgesCount = Object.values(def.edges).filter(e => e[1] === 'road').length;
+    if (roadEdgesCount >= 3) {
+        special.push(`${roadEdgesCount}-way Road Junction`);
+    } else if (roadEdgesCount === 4) {
+        special.push('4-way Crossroad');
+    }
 
     tableBody += `\n| **${def.typeId}** | ${def.count} | ${edges} | ${special.join(', ') || '-'} |`;
 });

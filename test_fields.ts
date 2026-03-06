@@ -1,14 +1,14 @@
-import { createInitialState, placeTile, endTurn } from './src/engine/state';
+import { createInitialState, placeTile } from './src/engine/state';
 import { getOccupiedFeaturesOnTile, evaluateFeature } from './src/engine/features';
 import { BASE_TILES } from './src/engine/tiles';
 
 console.log('--- Testing Field Traversal & Occupation ---');
-const state = createInitialState(['P1', 'P2']);
+const state = createInitialState({ 1: 'P1', 2: 'P2' }, { 1: 'human', 2: 'human' });
 
 // Tile U: Straight road top-to-bottom. Fields on left and right.
-const tileU = BASE_TILES.find(t => t.typeId === 'U')!;
+BASE_TILES.find(t => t.typeId === 'U');
 // Tile V: Curve road bottom-left. Fields on top/right.
-const tileV = BASE_TILES.find(t => t.typeId === 'V')!;
+BASE_TILES.find(t => t.typeId === 'V');
 
 // D is at 0,0.
 const D = state.board['0,0'];
@@ -18,8 +18,8 @@ console.log('Def D fieldConnections:', defD?.fieldConnections);
 
 // Place A at 0, 1 (rot 0). Top of U is r. Wait, D's bottom is f! So U top cannot be r!
 const tileA = BASE_TILES.find(t => t.typeId === 'A')!;
-state.hands['P1'][0] = tileA;
-placeTile(state, 'P1', 0, 0, 1, 0);
+state.hands[1][0] = tileA;
+placeTile(state, 1, 0, 0, 1, 0);
 
 // Place meeple on A's field
 state.board['0,1'].meeples.push({
@@ -34,9 +34,9 @@ console.log('Occupied features on D (0,0):', occupiedD);
 console.log('Expect field-1 to be occupied:', occupiedD.includes('field-1'));
 
 // Let's place another A below A.
-state.hands['P2'][0] = tileA;
+state.hands[2][0] = tileA;
 state.currentPlayerIndex = 1; // P2 turn
-const s2 = placeTile(state, 'P2', 0, 0, 2, 0);
+const s2 = placeTile(state, 2, 0, 0, 2, 0);
 console.log('Placed A2?', s2);
 
 // Check if A2's field is occupied

@@ -1,8 +1,8 @@
-import { rotateEdges, edgeMatches } from './src/engine/board';
+import { rotateEdges } from './src/engine/board';
 import { BASE_TILES } from './src/engine/tiles';
 
-const tileD = BASE_TILES.find(t => t.typeId === 'D'); // top: c, right: r, bottom: f, left: r
-const tileV = BASE_TILES.find(t => t.typeId === 'V'); // top: f, right: f, bottom: r, left: r (wait, V is bottom:r, left:r?)
+const tileD = BASE_TILES.find(t => t.typeId === 'D')!;
+const tileV = BASE_TILES.find(t => t.typeId === 'V')!;
 
 console.log('Tile D edges:', tileD.edges);
 console.log('Tile V edges:', tileV.edges);

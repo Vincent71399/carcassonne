@@ -40,16 +40,16 @@ export const Board: React.FC<BoardProps> = ({ state, pan, setPan, zoom, setZoom,
     const [isDragging, setIsDragging] = React.useState(false);
     const lastPan = useRef({ x: 0, y: 0 });
 
-    const handleSetPan = (updater: { x: number, y: number } | ((p: { x: number, y: number }) => { x: number, y: number })) => {
+    const handleSetPan = React.useCallback((updater: { x: number, y: number } | ((p: { x: number, y: number }) => { x: number, y: number })) => {
         setPan(updater);
-    };
+    }, [setPan]);
 
     // Auto-focus the camera when requested
     useEffect(() => {
         if (focusTarget) {
             handleSetPan({ x: -focusTarget.x * 100, y: -focusTarget.y * 100 });
         }
-    }, [focusTarget]);
+    }, [focusTarget, handleSetPan]);
 
     const handlePointerDown = (e: React.PointerEvent) => {
         if (isMobile) return; // Disable dragging on mobile as requested
@@ -108,7 +108,7 @@ export const Board: React.FC<BoardProps> = ({ state, pan, setPan, zoom, setZoom,
             >
                 {Object.values(state.board).map(placed => {
                     const def = TILES_MAP[placed.typeId];
-                    const isMeepleMode = allTilesInteractive || !!(meepleTilePosition && placed.x === meepleTilePosition.x && placed.y === meepleTilePosition.y);
+                    const isMeepleMode = allTilesInteractive || (meepleTilePosition?.x === placed.x && meepleTilePosition?.y === placed.y);
 
                     // Compute dynamic disabled hotspots for the sandbox mode
                     let tileDisabledHotspots = isMeepleMode ? disabledHotspots : undefined;

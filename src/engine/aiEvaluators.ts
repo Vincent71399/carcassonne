@@ -1,5 +1,5 @@
 import type { GameState, PlayerId, PlacedTile } from './types';
-import { evaluateFeature, evaluateMonastery } from './features';
+import { evaluateFeature, evaluateMonastery, type FeatureEvaluation, type FeatureComponent } from './features';
 import { TILES_MAP } from './tiles';
 import { AI_CONSTANTS } from './aiConstants';
 
@@ -37,7 +37,7 @@ function getFeatureDelta(_board: GameState['board'], fId: string, simTile: Place
     return 0; // Fields are evaluated based on completion
 }
 
-function getFeatureOwnership(evaluation: any, board: GameState['board'], fId: string, x?: number, y?: number): Record<PlayerId, number> {
+function getFeatureOwnership(evaluation: FeatureEvaluation, board: GameState['board'], fId: string, x?: number, y?: number): Record<PlayerId, number> {
     const meepleCounts: Record<PlayerId, number> = {};
     if (fId.startsWith('monastery') && x !== undefined && y !== undefined) {
         const centerTile = board[`${x},${y}`];
@@ -50,7 +50,7 @@ function getFeatureOwnership(evaluation: any, board: GameState['board'], fId: st
         return meepleCounts;
     }
 
-    evaluation.components.forEach((comp: any) => {
+    evaluation.components.forEach((comp: FeatureComponent) => {
         const t = board[`${comp.tileX},${comp.tileY}`];
         if (t) {
             t.meeples.filter(m => m.featureId === comp.featureId).forEach(m => {
@@ -108,7 +108,7 @@ export function evaluateGainMonastery(board: GameState['board'], x: number, y: n
     return { selfGain: points, opponentDelta: {} };
 }
 
-export function evaluateGainField(board: GameState['board'], x: number, y: number, fId: string, _aiPlayerId: PlayerId, placedMeepleFeatureId: string | null, _simTile: PlacedTile): ActionImpact {
+export function evaluateGainField(board: GameState['board'], x: number, y: number, fId: string, _aiPlayerId: PlayerId, placedMeepleFeatureId: string | null): ActionImpact {
     if (!fId.startsWith('field')) return emptyImpact;
     const evaluation = evaluateFeature(board, x, y, 'field', parseInt(fId.split('-')[1]));
 
@@ -118,12 +118,28 @@ export function evaluateGainField(board: GameState['board'], x: number, y: numbe
 
     let points = 0;
     if (fId.startsWith('field')) {
-        const fieldEval = evaluation as any;
-        if (fieldEval.connectedCities && fieldEval.connectedCities.length > 0) {
-            // FIX: Only value farmers based on cities that are ALREADY COMPLETED
-            const completedCitiesCount = fieldEval.connectedCities.filter((c: any) => c.isComplete).length;
-            points += completedCitiesCount * AI_CONSTANTS.FEATURES.FIELD_MULTIPLIER;
-        }
+        // Count completed cities adjacent to this field
+        const adjacentCityKeys = new Set<string>();
+        evaluation.components.forEach(comp => {
+            const compTile = board[`${comp.tileX},${comp.tileY}`];
+            if (!compTile) return;
+            const compDef = TILES_MAP[compTile.typeId];
+            if (!compDef?.adjacentCities) return;
+
+            const localFieldIdx = parseInt(comp.featureId.split('-')[1], 10);
+            const adjacentCityIndices = compDef.adjacentCities[localFieldIdx];
+            if (!adjacentCityIndices) return;
+
+            for (const cIdx of adjacentCityIndices) {
+                const ce = evaluateFeature(board, compTile.x, compTile.y, 'city', cIdx);
+                if (ce.isComplete) {
+                    adjacentCityKeys.add(
+                        ce.components.map(c => `${c.tileX},${c.tileY},${c.featureId}`).sort().join('|')
+                    );
+                }
+            }
+        });
+        points += adjacentCityKeys.size * AI_CONSTANTS.FEATURES.FIELD_MULTIPLIER;
     }
     return { selfGain: points, opponentDelta: {} };
 }
@@ -147,9 +163,9 @@ export function evaluateAllActions(
     let totalImpact: ActionImpact = { selfGain: 0, opponentDelta: {} };
 
     const featuresToEvaluate: string[] = [];
-    if (tileDef.cityConnections) tileDef.cityConnections.forEach((_: any, i: number) => featuresToEvaluate.push(`city-${i}`));
-    if (tileDef.roadConnections) tileDef.roadConnections.forEach((_: any, i: number) => featuresToEvaluate.push(`road-${i}`));
-    if (tileDef.fieldConnections) tileDef.fieldConnections.forEach((_: any, i: number) => featuresToEvaluate.push(`field-${i}`));
+    if (tileDef.cityConnections) tileDef.cityConnections.forEach((_, i: number) => featuresToEvaluate.push(`city-${i}`));
+    if (tileDef.roadConnections) tileDef.roadConnections.forEach((_, i: number) => featuresToEvaluate.push(`road-${i}`));
+    if (tileDef.fieldConnections) tileDef.fieldConnections.forEach((_, i: number) => featuresToEvaluate.push(`field-${i}`));
     if (tileDef.monastery) featuresToEvaluate.push(`monastery-0`);
 
     for (const fId of featuresToEvaluate) {
@@ -157,7 +173,7 @@ export function evaluateAllActions(
         totalImpact = addImpacts(totalImpact, evaluateGainCity(simBoard, x, y, fId, aiPlayerId, meepleFeatureId, simTile));
         totalImpact = addImpacts(totalImpact, evaluateGainRoad(simBoard, x, y, fId, aiPlayerId, meepleFeatureId, simTile));
         totalImpact = addImpacts(totalImpact, evaluateGainMonastery(simBoard, x, y, fId, aiPlayerId, meepleFeatureId, simTile));
-        totalImpact = addImpacts(totalImpact, evaluateGainField(simBoard, x, y, fId, aiPlayerId, meepleFeatureId, simTile));
+        totalImpact = addImpacts(totalImpact, evaluateGainField(simBoard, x, y, fId, aiPlayerId, meepleFeatureId));
     }
 
     return totalImpact;

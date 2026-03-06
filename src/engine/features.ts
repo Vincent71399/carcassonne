@@ -138,7 +138,7 @@ export function evaluateFeature(
             if (!nextConnections) continue;
 
             for (let i = 0; i < nextConnections.length; i++) {
-                if (nextConnections[i].includes(incomingLocalEdge as any)) {
+                if ((nextConnections[i] as string[]).includes(incomingLocalEdge)) {
                     queue.push({
                         x: neighborCoord.x,
                         y: neighborCoord.y,

@@ -1,12 +1,12 @@
-import { createInitialState, placeTile } from './src/engine/state';
+import { createInitialState } from './src/engine/state';
 import { getOccupiedFeaturesOnTile, evaluateFeature } from './src/engine/features';
 import { BASE_TILES } from './src/engine/tiles';
 
 console.log('--- Testing Tile U and H Field Connection ---');
-const state = createInitialState(['P1', 'P2']);
+const state = createInitialState({ 1: 'P1', 2: 'P2' }, { 1: 'human', 2: 'human' });
 
-const tileU = BASE_TILES.find(t => t.typeId === 'U')!;
-const tileH = BASE_TILES.find(t => t.typeId === 'H')!;
+BASE_TILES.find(t => t.typeId === 'U');
+BASE_TILES.find(t => t.typeId === 'H');
 
 // Clear board and place H at 0,0
 state.board = {};

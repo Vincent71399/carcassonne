@@ -31,11 +31,11 @@ let content = fs.readFileSync('src/engine/tiles.ts', 'utf8');
 
 for (const [id, fields] of Object.entries(fieldData)) {
     // Regex looks for: typeId: 'A' ... } followed by , or newline
-    const rx = new RegExp(\`(typeId:\\s*'\${id}'[\\\\s\\\\S]*?\\})(\\s*(,?\\n))\`, 'g');
+    const rx = new RegExp("(typeId:\\s*'" + id + "'[\\s\\S]*?\\})(\\s*(,?\\n))", 'g');
     content = content.replace(rx, (match, p1, p2) => {
         if (p1.includes('fieldConnections:')) return match;
         // insert before the closing brace
-        return p1.replace(/\\s*\\}$/, \`,\\n        fieldConnections: \${fields}\\n    }\`) + p2;
+        return p1.replace(/\s*}$/, ",\n        fieldConnections: " + fields + "\n    }") + p2;
     });
 }
 

@@ -101,14 +101,14 @@ export function placeMeeple(
     const tile = state.board[`${state.recentTilePosition.x},${state.recentTilePosition.y}`];
     state.remainingMeeples[playerId][meepleType]--;
     tile.meeples.push({ meeple: { id: Date.now().toString(), playerId, type: meepleType }, featureId });
-    endTurn(state, playerId);
+    endTurn(state);
     return true;
 }
 
 export function skipMeeple(state: GameState, playerId: PlayerId): boolean {
     if (playerId !== state.players[state.currentPlayerIndex]) return false;
     if (state.turnPhase !== 'PlaceMeeple') return false;
-    endTurn(state, playerId);
+    endTurn(state);
     return true;
 }
 
@@ -201,7 +201,7 @@ export function advanceTurn(state: GameState) {
 
 // ─── Public turn functions ────────────────────────────────────────────────────
 
-export function endTurn(state: GameState, _playerId: PlayerId) {
+export function endTurn(state: GameState) {
     // checkAndScoreFeatures is now PURE — only computes updates, no mutations
     const updates = checkAndScoreFeatures(state);
 

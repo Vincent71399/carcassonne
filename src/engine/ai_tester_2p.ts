@@ -1,6 +1,10 @@
 import { createInitialState, placeTile, placeMeeple, skipMeeple, finishScoring, advanceTurn } from './state';
 import { calculateBestAIMove } from './ai';
-import type { PlayerType } from './types';
+import type { PlayerType, GameState } from './types';
+
+interface LocalTestState extends GameState {
+    pendingMeepleMove?: { featureId: string; meepleType: 'standard' } | null;
+}
 
 async function runMatch(types: Record<number, PlayerType>, names: Record<number, string>) {
     const state = createInitialState(names, types);
@@ -31,15 +35,15 @@ async function runMatch(types: Record<number, PlayerType>, names: Record<number,
             }
             placeTile(state, currentPlayer, move.handIndex, move.tilePlacement.x, move.tilePlacement.y, move.tilePlacement.rotation);
             // Remember meeple move for next phase
-            (state as any).pendingMeepleMove = move.meeplePlacement;
+            (state as LocalTestState).pendingMeepleMove = move.meeplePlacement;
         } else if (state.turnPhase === 'PlaceMeeple') {
-            const meepleMove = (state as any).pendingMeepleMove;
+            const meepleMove = (state as LocalTestState).pendingMeepleMove;
             if (meepleMove) {
                 placeMeeple(state, currentPlayer, meepleMove.featureId);
             } else {
                 skipMeeple(state, currentPlayer);
             }
-            (state as any).pendingMeepleMove = null;
+            (state as LocalTestState).pendingMeepleMove = null;
         } else if (state.turnPhase === 'WaitingNextTurn') {
             advanceTurn(state);
         } else if (state.endGameMode) {
