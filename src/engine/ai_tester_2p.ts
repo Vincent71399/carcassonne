@@ -3,7 +3,7 @@ import { calculateBestAIMove } from './ai';
 import type { PlayerType } from './types';
 
 async function runMatch(types: Record<number, PlayerType>, names: Record<number, string>) {
-    let state = createInitialState(names, types);
+    const state = createInitialState(names, types);
 
     let moveCount = 0;
     while (state.turnPhase !== 'GameOver' && moveCount < 1000) {
@@ -64,7 +64,7 @@ async function runTournament() {
     for (const matchup of matchups) {
         console.log(`\n======================================================`);
         console.log(`--- Playing ${matchup.name} (${MATCHES_PER_PAIR} matches) ---`);
-        let wins: Record<number, number> = {};
+        const wins: Record<number, number> = {};
         for (const p of Object.keys(matchup.types)) wins[Number(p)] = 0;
         let ties = 0;
 

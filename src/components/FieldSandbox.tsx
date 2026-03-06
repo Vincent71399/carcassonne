@@ -30,7 +30,7 @@ export const FieldSandbox: React.FC<{ onClose: () => void }> = ({ onClose }) => 
     }, [board, selectedTypeId, currentRotation]);
 
     const fieldConquest = useMemo(() => {
-        return computeFieldConquest({ board, players: [1, 2, 3, 4] } as any);
+        return computeFieldConquest({ board, players: [1, 2, 3, 4] } as unknown as GameState);
     }, [board]);
 
     // Dummy state for Board component
@@ -81,7 +81,7 @@ export const FieldSandbox: React.FC<{ onClose: () => void }> = ({ onClose }) => 
         }
     };
 
-    const handleFeatureClick = (featureId: string, pt?: any) => {
+    const handleFeatureClick = (featureId: string, pt?: { x: number, y: number }) => {
         if (!mode.startsWith('meeple')) return;
         if (!featureId.startsWith('field-')) return; // Sandbox is pure fields
 
@@ -235,7 +235,7 @@ export const FieldSandbox: React.FC<{ onClose: () => void }> = ({ onClose }) => 
                             <div key={i} style={{ padding: 10, background: '#f5f5f5', borderRadius: 6, marginBottom: 10 }}>
                                 <div style={{ fontWeight: 'bold' }}>{sc.featureName}</div>
                                 <div style={{ marginTop: 5 }}>
-                                    {sc.players.map((p: any) => (
+                                    {sc.players.map((p: PlayerId) => (
                                         <span key={p} style={{ background: PLAYER_COLORS[p], color: 'white', padding: '2px 6px', borderRadius: 4, marginRight: 5, fontSize: 12 }}>
                                             P{p}: +{sc.points}
                                         </span>

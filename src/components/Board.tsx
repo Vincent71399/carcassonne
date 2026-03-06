@@ -36,7 +36,8 @@ interface BoardProps {
 
 
 export const Board: React.FC<BoardProps> = ({ state, pan, setPan, zoom, setZoom, isMobile = false, validPlacements = [], meepleTilePosition, onTileClick, onPlacementClick, onFeatureClick, disabledHotspots = [], fieldConquest, allTilesInteractive = false, sandboxMode = false, onContextMenu, focusTarget }) => {
-    const isDragging = useRef(false);
+    const isDraggingRef = useRef(false);
+    const [isDragging, setIsDragging] = React.useState(false);
     const lastPan = useRef({ x: 0, y: 0 });
 
     const handleSetPan = (updater: { x: number, y: number } | ((p: { x: number, y: number }) => { x: number, y: number })) => {
@@ -52,13 +53,14 @@ export const Board: React.FC<BoardProps> = ({ state, pan, setPan, zoom, setZoom,
 
     const handlePointerDown = (e: React.PointerEvent) => {
         if (isMobile) return; // Disable dragging on mobile as requested
-        isDragging.current = true;
+        isDraggingRef.current = true;
+        setIsDragging(true);
         lastPan.current = { x: e.clientX, y: e.clientY };
         (e.target as HTMLElement).setPointerCapture(e.pointerId);
     };
 
     const handlePointerMove = (e: React.PointerEvent) => {
-        if (!isDragging.current) return;
+        if (!isDraggingRef.current) return;
         const dx = e.clientX - lastPan.current.x;
         const dy = e.clientY - lastPan.current.y;
         handleSetPan(p => ({ x: p.x + dx, y: p.y + dy }));
@@ -66,7 +68,8 @@ export const Board: React.FC<BoardProps> = ({ state, pan, setPan, zoom, setZoom,
     };
 
     const handlePointerUp = (e: React.PointerEvent) => {
-        isDragging.current = false;
+        isDraggingRef.current = false;
+        setIsDragging(false);
         (e.target as HTMLElement).releasePointerCapture(e.pointerId);
     };
 
@@ -85,7 +88,7 @@ export const Board: React.FC<BoardProps> = ({ state, pan, setPan, zoom, setZoom,
                 height: '100vh',
                 overflow: 'hidden',
                 backgroundColor: '#f0e6d2',
-                cursor: isDragging.current ? 'grabbing' : 'grab',
+                cursor: isDragging ? 'grabbing' : 'grab',
                 position: 'relative'
             }}
             onPointerDown={handlePointerDown}
@@ -100,7 +103,7 @@ export const Board: React.FC<BoardProps> = ({ state, pan, setPan, zoom, setZoom,
                     position: 'absolute',
                     top: '50%',
                     left: '50%',
-                    transition: isDragging.current ? 'none' : 'transform 0.1s ease-out'
+                    transition: isDragging ? 'none' : 'transform 0.1s ease-out'
                 }}
             >
                 {Object.values(state.board).map(placed => {

@@ -39,7 +39,7 @@ BASE_TILES.forEach(def => {
         def.edges.left[0] === 'city' ? 'City' : def.edges.left[1] === 'road' ? 'Road' : 'Field'
     ].join(' - ');
 
-    let special = [];
+    const special = [];
     if (def.monastery) special.push('Monastery');
     if (def.pennants) special.push(`${def.pennants} Pennant(s)`);
     if (def.typeId === 'S' || def.typeId === 'W' || def.typeId === 'X') special.push('Crossroad');
