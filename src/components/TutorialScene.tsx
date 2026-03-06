@@ -140,7 +140,8 @@ export const TutorialScene: React.FC<TutorialSceneProps> = ({
                             backgroundColor: 'rgba(76, 175, 80, 0.4)',
                             border: `${Math.max(1, Math.round(3 * scale))}px dashed #388e3c`,
                             borderRadius: `${Math.max(2, Math.round(10 * scale))}px`,
-                            boxSizing: 'border-box'
+                            boxSizing: 'border-box',
+                            animation: 'none'
                         }} />
                     ))}
 
@@ -157,7 +158,7 @@ export const TutorialScene: React.FC<TutorialSceneProps> = ({
                             boxShadow: '0 4px 10px rgba(0,0,0,0.2)',
                             zIndex: 10,
                             display: 'flex', flexDirection: 'column', alignItems: 'center',
-                            animation: 'scoreFloatUp 2s ease-out infinite'
+                            animation: 'scoreFloatUp 1.5s ease-out infinite'
                         }}>
                             <span style={{ fontSize: '18px', fontWeight: '900', color: '#f57c00' }}>+{scoreUpdate.points}</span>
                             <span style={{ fontSize: '10px', color: '#424242', fontWeight: 'bold' }}>{scoreUpdate.text}</span>
@@ -254,7 +255,7 @@ export const TutorialScene: React.FC<TutorialSceneProps> = ({
                                 transform: 'translate(-50%, -50%)',
                                 width: '130%', height: '160%',
                                 border: '4px solid #e74c3c', borderRadius: '40px',
-                                animation: 'pulseRed 2s infinite'
+                                animation: 'tutorial-button-pulse-red 2s infinite'
                             }} />
                         )}
                     </div>
@@ -262,7 +263,7 @@ export const TutorialScene: React.FC<TutorialSceneProps> = ({
             )}
 
             <style>{`
-                @keyframes pulseRed {
+                @keyframes tutorial-button-pulse-red {
                     0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
                     100% { transform: translate(-50%, -50%) scale(1.2); opacity: 0; }
                 }

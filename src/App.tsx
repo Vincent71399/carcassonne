@@ -53,6 +53,7 @@ function App() {
   const [showBoardPostGame, setShowBoardPostGame] = useState(false);
   const [showGallery, setShowGallery] = useState(false);
   const [showSandbox, setShowSandbox] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
 
 
   useEffect(() => {
@@ -64,7 +65,7 @@ function App() {
       // Play scoring sound
       const update = gameState.scoreUpdates[0];
       const soundFile = AUDIO_MAP[update.category];
-      if (soundFile) {
+      if (soundFile && !isMuted) {
         const audio = new Audio(soundFile);
         audio.play().catch(e => console.log('Audio play failed:', e));
       }
@@ -291,6 +292,19 @@ function App() {
                 transition: 'all 0.2s'
               }}
             >🃏</button>
+            <button
+              onClick={() => setIsMuted(v => !v)}
+              title={isMuted ? "Unmute Sound" : "Mute Sound"}
+              style={{
+                background: isMuted ? UI_COLORS.danger : 'rgba(0,0,0,0.08)',
+                border: 'none', borderRadius: 6, cursor: 'pointer',
+                fontSize: 16, padding: '2px 8px',
+                color: isMuted ? '#fff' : '#555',
+                transition: 'all 0.2s'
+              }}
+            >
+              {isMuted ? '🔇' : '🔊'}
+            </button>
 
             {DEBUG_MODE && (
               <>

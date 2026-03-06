@@ -222,7 +222,7 @@ export const TileRenderer: React.FC<TileRendererProps> = ({
         width: size,
         height: size,
         position: 'relative',
-        transition: 'all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1)',
+        transition: animate ? 'all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1)' : 'none',
         transform: selected ? 'scale(1.05) translateY(-10px)' : 'none',
         boxShadow: selected ? '0 10px 20px rgba(0,0,0,0.3)' : '0 2px 5px rgba(0,0,0,0.2)',
         borderRadius: '4px',
@@ -317,7 +317,7 @@ export const TileRenderer: React.FC<TileRendererProps> = ({
                                     strokeWidth={isActive ? "2" : "1"}
                                     style={{
                                         cursor: isDisabled ? 'default' : 'pointer',
-                                        animation: isDisabled ? 'none' : 'pulse 1.5s infinite',
+                                        animation: isDisabled ? 'none' : 'meeple-pulse 1.5s infinite',
                                         pointerEvents: isDisabled ? 'none' : 'all'
                                     }}
                                     onPointerEnter={() => {
@@ -362,7 +362,7 @@ export const TileRenderer: React.FC<TileRendererProps> = ({
             {/* CSS animation for hotspot pulse */}
             {meeplePlacementMode && (
                 <style>{`
-                    @keyframes pulse {
+                    @keyframes meeple-pulse {
                         0%, 100% { opacity: 0.6; transform: scale(1); }
                         50% { opacity: 1; transform: scale(1.2); }
                     }

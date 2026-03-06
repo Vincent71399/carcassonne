@@ -245,8 +245,8 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({ onClose }) => {
                 @keyframes scoreFloatUp {
                     0% { transform: translate(-50%, 0) scale(0.8); opacity: 0; }
                     20% { transform: translate(-50%, -10px) scale(1); opacity: 1; }
-                    80% { transform: translate(-50%, -20px) scale(1); opacity: 1; }
-                    100% { transform: translate(-50%, -30px) scale(0.8); opacity: 0; }
+                    80% { transform: translate(-50%, -15px) scale(1); opacity: 1; }
+                    100% { transform: translate(-50%, -20px) scale(0.8); opacity: 0; }
                 }
             `}</style>
         </div>
