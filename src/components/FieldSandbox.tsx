@@ -17,6 +17,10 @@ export const FieldSandbox: React.FC<{ onClose: () => void }> = ({ onClose }) => 
     const [mode, setMode] = useState<'tile' | 'meeple-1' | 'meeple-2' | 'meeple-3' | 'meeple-4'>('tile');
     const [meepleTilePos, setMeepleTilePos] = useState<{ x: number, y: number } | null>(null);
 
+    // Pan and Zoom state for the Board component
+    const [pan, setPan] = useState({ x: 0, y: 0 });
+    const [zoom, setZoom] = useState(1);
+
     // For valid placements
     const validPlacements = useMemo(() => {
         if (Object.keys(board).length === 0) return [{ x: 0, y: 0 }];
@@ -197,6 +201,10 @@ export const FieldSandbox: React.FC<{ onClose: () => void }> = ({ onClose }) => 
                 <div style={{ flex: 1, position: 'relative' }} onContextMenu={(e) => e.preventDefault()}>
                     <Board
                         state={dummyState}
+                        pan={pan}
+                        setPan={setPan}
+                        zoom={zoom}
+                        setZoom={setZoom}
                         validPlacements={mode === 'tile' ? validPlacements : []}
                         onPlacementClick={handlePlacementClick}
                         onTileClick={handleTileClick}
