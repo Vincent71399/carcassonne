@@ -11,9 +11,11 @@
   will-change: filter;
   transition: filter 300ms;
 }
+
 .logo:hover {
   filter: drop-shadow(0 0 2em #646cffaa);
 }
+
 .logo.react:hover {
   filter: drop-shadow(0 0 2em #61dafbaa);
 }
@@ -22,6 +24,7 @@
   from {
     transform: rotate(0deg);
   }
+
   to {
     transform: rotate(360deg);
   }
@@ -39,4 +42,23 @@
 
 .read-the-docs {
   color: #888;
+}
+
+.quit-button:hover {
+  background: rgba(0, 0, 0, 0.15) !important;
+  transform: translateY(-1px);
+}
+
+.quit-button:active {
+  background: rgba(0, 0, 0, 0.2) !important;
+  transform: translateY(0);
+}
+
+@media (max-width: 768px) {
+  .quit-button {
+    top: 10px;
+    right: 10px;
+    width: 44px;
+    height: 44px;
+  }
 }

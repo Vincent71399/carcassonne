@@ -62,6 +62,7 @@ function App() {
   const [showBoardPostGame, setShowBoardPostGame] = useState(false);
   const [showGallery, setShowGallery] = useState(false);
   const [showSandbox, setShowSandbox] = useState(false);
+  const [showQuitConfirm, setShowQuitConfirm] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [windowSize, setWindowSize] = useState({ width: typeof window !== 'undefined' ? window.innerWidth : 1200, height: typeof window !== 'undefined' ? window.innerHeight : 800 });
 
@@ -90,6 +91,35 @@ function App() {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // Fullscreen effect for mobile/iPad
+  useEffect(() => {
+    const isIPad = /Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 0;
+    const isMobileOrIPad = isMobile || isIPad;
+
+    if (isMobileOrIPad) {
+      if (gameState) {
+        const doc = window.document.documentElement;
+        const requestFullScreen = doc.requestFullscreen || (doc as any).mozRequestFullScreen || (doc as any).webkitRequestFullScreen || (doc as any).msRequestFullscreen;
+
+        if (requestFullScreen) {
+          requestFullScreen.call(doc).catch(err => {
+            console.warn(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
+          });
+        }
+      } else {
+        // Exit fullscreen when returning to start screen
+        const doc = window.document;
+        const exitFullScreen = doc.exitFullscreen || (doc as any).mozCancelFullScreen || (doc as any).webkitExitFullscreen || (doc as any).msExitFullscreen;
+
+        if (exitFullScreen && doc.fullscreenElement) {
+          exitFullScreen.call(doc).catch(err => {
+            console.warn(`Error attempting to exit full-screen mode: ${err.message} (${err.name})`);
+          });
+        }
+      }
+    }
+  }, [!!gameState, isMobile]);
 
   useEffect(() => {
     if (gameState?.turnPhase === 'Score' && gameState?.scoreUpdates?.length) {
@@ -337,6 +367,7 @@ function App() {
       }}
     >
       <style>{SCORING_CSS}</style>
+
 
       {/* Scoreboard Toggle (Mobile) */}
       {isMobile && (
@@ -1036,6 +1067,102 @@ function App() {
           </div >
         )
       }
+      {/* Quit Button (placed here to overlay everything) */}
+      <button
+        className="quit-button"
+        style={{
+          position: 'absolute',
+          top: 20,
+          right: 20,
+          zIndex: 3000,
+          background: 'rgba(0,0,0,0.08)',
+          border: 'none',
+          borderRadius: 6,
+          cursor: 'pointer',
+          padding: '8px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          transition: 'all 0.2s',
+          width: 44,
+          height: 44,
+          pointerEvents: 'auto'
+        }}
+        title="Quit to Main Menu"
+        onClick={(e) => {
+          e.stopPropagation();
+          setShowQuitConfirm(true);
+        }}
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+          <polyline points="16 17 21 12 16 7"></polyline>
+          <line x1="21" y1="12" x2="9" y2="12"></line>
+        </svg>
+      </button>
+
+      {/* Custom Quit Confirmation Modal */}
+      {showQuitConfirm && (
+        <div style={{
+          position: 'fixed', inset: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.85)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 10000,
+          animation: 'fadeIn 0.3s ease-out'
+        }}>
+          <div style={{
+            background: 'linear-gradient(135deg, #2c3e50 0%, #34495e 100%)',
+            width: isMobile ? '100vw' : '400px',
+            borderRadius: isMobile ? '0px' : '24px',
+            padding: '32px',
+            color: 'white',
+            boxShadow: '0 20px 50px rgba(0,0,0,0.5)',
+            display: 'flex', flexDirection: 'column', gap: '24px',
+            border: '1px solid rgba(255,255,255,0.1)',
+            textAlign: 'center'
+          }}>
+            <div style={{ fontSize: '48px' }}>🏰</div>
+            <h2 style={{ margin: 0, fontSize: '24px', color: '#f1c40f', textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}>
+              Quit Game?
+            </h2>
+            <p style={{ margin: 0, lineHeight: '1.5', color: '#ecf0f1', fontSize: '16px' }}>
+              Are you sure you want to leave the current game? All progress will be lost.
+            </p>
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button
+                onClick={() => setShowQuitConfirm(false)}
+                style={{
+                  flex: 1, padding: '12px', borderRadius: '10px',
+                  background: 'rgba(255,255,255,0.1)', color: 'white',
+                  border: '1px solid rgba(255,255,255,0.2)',
+                  cursor: 'pointer', fontWeight: 'bold'
+                }}
+              >
+                Stay
+              </button>
+              <button
+                onClick={() => {
+                  setShowQuitConfirm(false);
+                  setGameState(null);
+                  setSelectedHandIndex(-1);
+                  setRotation(0);
+                  setShowDeckViewer(false);
+                  setShowBoardPostGame(false);
+                }}
+                style={{
+                  flex: 1, padding: '12px', borderRadius: '10px',
+                  background: '#e74c3c', color: 'white', border: 'none',
+                  cursor: 'pointer', fontWeight: 'bold',
+                  boxShadow: '0 4px 15px rgba(231, 76, 60, 0.3)'
+                }}
+              >
+                Quit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div >
   );
 }
