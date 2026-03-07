@@ -33,12 +33,10 @@ interface BoardProps {
     onContextMenu?: (x: number, y: number, e: React.MouseEvent) => void;
     /** Triggers an automatic camera pan to this grid coordinate */
     focusTarget?: { x: number, y: number } | null;
-    /** Current rotation of the selected tile to refresh indicators correctly */
-    currentRotation?: number;
 }
 
 
-export const Board: React.FC<BoardProps> = ({ state, pan, setPan, zoom, setZoom, isMobile = false, validPlacements = [], meepleTilePosition, onTileClick, onPlacementClick, onFeatureClick, disabledHotspots = [], fieldConquest, allTilesInteractive = false, sandboxMode = false, onContextMenu, focusTarget, currentRotation = 0 }) => {
+export const Board: React.FC<BoardProps> = ({ state, pan, setPan, zoom, setZoom, isMobile = false, validPlacements = [], meepleTilePosition, onTileClick, onPlacementClick, onFeatureClick, disabledHotspots = [], fieldConquest, allTilesInteractive = false, sandboxMode = false, onContextMenu, focusTarget }) => {
     const { t } = useTranslation();
     const isDraggingRef = useRef(false);
     const [isDragging, setIsDragging] = useState(false);
@@ -237,30 +235,36 @@ export const Board: React.FC<BoardProps> = ({ state, pan, setPan, zoom, setZoom,
                         </div>
                     );
                 })}
-                {validPlacements.map((pos, idx) => (
-                    <div
-                        key={`valid-${state.currentPlayerIndex}-${currentRotation}-${pos.x}-${pos.y}-${idx}`}
-                        style={{
-                            position: 'absolute',
-                            left: pos.x * 100 - 45,
-                            top: pos.y * 100 - 45,
-                            width: 90,
-                            height: 90,
-                            backgroundColor: 'rgba(76, 175, 80, 0.4)',
-                            border: '3px dashed #388e3c',
-                            borderRadius: '10px',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            justifyContent: 'center',
-                            alignItems: 'center',
-                            boxSizing: 'border-box'
-                        }}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onPlacementClick?.(pos.x, pos.y);
-                        }}
-                    />
-                ))}
+                {/* Placement Indicators Group */}
+                <div key="placement-indicators-group">
+                    {validPlacements.map((pos) => (
+                        <div
+                            key={`valid-${pos.x}-${pos.y}`}
+                            style={{
+                                position: 'absolute',
+                                left: pos.x * 100 - 45,
+                                top: pos.y * 100 - 45,
+                                width: 90,
+                                height: 90,
+                                backgroundColor: 'rgba(76, 175, 80, 0.4)',
+                                border: '3px dashed #388e3c',
+                                borderRadius: '10px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                justifyContent: 'center',
+                                alignItems: 'center',
+                                boxSizing: 'border-box',
+                                // GPU hint for Safari to prevent ghosting
+                                transform: 'translateZ(0)',
+                                backfaceVisibility: 'hidden'
+                            }}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onPlacementClick?.(pos.x, pos.y);
+                            }}
+                        />
+                    ))}
+                </div>
 
                 {/* Score Animations */}
                 {state.scoreUpdates?.map((update, i) => {

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Board } from './components/Board';
 import { Hand } from './components/Hand';
 import { DeckViewer } from './components/DeckViewer';
@@ -95,6 +95,16 @@ function App() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [windowSize, setWindowSize] = useState({ width: typeof window !== 'undefined' ? window.innerWidth : 1200, height: typeof window !== 'undefined' ? window.innerHeight : 800 });
+  const validPlacements = useMemo(() => {
+    if (gameState && selectedHandIndex !== -1) {
+      const currentPId = gameState.players[gameState.currentPlayerIndex];
+      const tileDef = gameState.hands[currentPId][selectedHandIndex];
+      if (tileDef) {
+        return getValidPlacements(gameState.board, tileDef, rotation);
+      }
+    }
+    return [];
+  }, [gameState, selectedHandIndex, rotation]);
 
   const lastStateRef = useRef({ gameState, zoom, windowSize });
   useEffect(() => {
@@ -216,11 +226,17 @@ function App() {
         const requestFullScreen = doc.requestFullscreen || doc.mozRequestFullScreen || doc.webkitRequestFullScreen || doc.msRequestFullScreen;
 
         if (requestFullScreen) {
-          requestFullScreen.call(doc).catch((err: unknown) => {
-            const message = err instanceof Error ? err.message : String(err);
-            const name = err instanceof Error ? err.name : 'Error';
-            console.warn(`Error attempting to enable full-screen mode: ${message} (${name})`);
-          });
+          // Blur ALL inputs to ensure keyboard is dismissed and iPadOS knows we are done typing
+          document.querySelectorAll('input, textarea').forEach(el => (el as HTMLElement).blur());
+
+          // Delay the fullscreen request slightly to allow the keyboard to dismiss
+          setTimeout(() => {
+            requestFullScreen.call(doc).catch((err: unknown) => {
+              const message = err instanceof Error ? err.message : String(err);
+              const name = err instanceof Error ? err.name : 'Error';
+              console.warn(`Error attempting to enable full-screen mode: ${message} (${name})`);
+            });
+          }, 300);
         }
       } else {
         // Exit fullscreen when returning to start screen
@@ -370,13 +386,7 @@ function App() {
   }, [gameState, zoom, windowSize]);
 
   if (!gameState) {
-    return <StartScreen isMobile={isMobile} onStartGame={(names: Record<PlayerId, string>, types: Record<PlayerId, PlayerType>) => {
-      // Blur any active inputs to prevent iPad "Typing not allowed in fullscreen" popup
-      if (document.activeElement instanceof HTMLElement) {
-        document.activeElement.blur();
-      }
-      setGameState(createInitialState(names, types));
-    }} />;
+    return <StartScreen isMobile={isMobile} onStartGame={(names: Record<PlayerId, string>, types: Record<PlayerId, PlayerType>) => setGameState(createInitialState(names, types))} />;
   }
 
   const currentPlayer = gameState.players[gameState.currentPlayerIndex];
@@ -440,13 +450,6 @@ function App() {
     );
   }
 
-  let validPlacements: { x: number, y: number }[] = [];
-  if (selectedHandIndex !== -1) {
-    const tileDef = gameState.hands[currentPlayer][selectedHandIndex];
-    if (tileDef) {
-      validPlacements = getValidPlacements(gameState.board, tileDef, rotation);
-    }
-  }
 
   const handlePlacementClick = (x: number, y: number) => {
     if (selectedHandIndex === -1) return;
@@ -678,7 +681,6 @@ function App() {
         isMobile={isMobile}
         focusTarget={computedFocusTarget}
         validPlacements={gameState.turnPhase === 'PlaceTile' ? validPlacements : []}
-        currentRotation={rotation}
         meepleTilePosition={
           gameState.turnPhase === 'PlaceMeeple' &&
             (gameState.remainingMeeples[currentPlayer]?.standard ?? 0) > 0
