@@ -33,10 +33,12 @@ interface BoardProps {
     onContextMenu?: (x: number, y: number, e: React.MouseEvent) => void;
     /** Triggers an automatic camera pan to this grid coordinate */
     focusTarget?: { x: number, y: number } | null;
+    /** Current rotation of the selected tile to refresh indicators correctly */
+    currentRotation?: number;
 }
 
 
-export const Board: React.FC<BoardProps> = ({ state, pan, setPan, zoom, setZoom, isMobile = false, validPlacements = [], meepleTilePosition, onTileClick, onPlacementClick, onFeatureClick, disabledHotspots = [], fieldConquest, allTilesInteractive = false, sandboxMode = false, onContextMenu, focusTarget }) => {
+export const Board: React.FC<BoardProps> = ({ state, pan, setPan, zoom, setZoom, isMobile = false, validPlacements = [], meepleTilePosition, onTileClick, onPlacementClick, onFeatureClick, disabledHotspots = [], fieldConquest, allTilesInteractive = false, sandboxMode = false, onContextMenu, focusTarget, currentRotation = 0 }) => {
     const { t } = useTranslation();
     const isDraggingRef = useRef(false);
     const [isDragging, setIsDragging] = useState(false);
@@ -237,7 +239,7 @@ export const Board: React.FC<BoardProps> = ({ state, pan, setPan, zoom, setZoom,
                 })}
                 {validPlacements.map((pos, idx) => (
                     <div
-                        key={`valid-${state.currentPlayerIndex}-${pos.x}-${pos.y}-${idx}`}
+                        key={`valid-${state.currentPlayerIndex}-${currentRotation}-${pos.x}-${pos.y}-${idx}`}
                         style={{
                             position: 'absolute',
                             left: pos.x * 100 - 45,

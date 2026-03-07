@@ -370,7 +370,13 @@ function App() {
   }, [gameState, zoom, windowSize]);
 
   if (!gameState) {
-    return <StartScreen isMobile={isMobile} onStartGame={(names: Record<PlayerId, string>, types: Record<PlayerId, PlayerType>) => setGameState(createInitialState(names, types))} />;
+    return <StartScreen isMobile={isMobile} onStartGame={(names: Record<PlayerId, string>, types: Record<PlayerId, PlayerType>) => {
+      // Blur any active inputs to prevent iPad "Typing not allowed in fullscreen" popup
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+      setGameState(createInitialState(names, types));
+    }} />;
   }
 
   const currentPlayer = gameState.players[gameState.currentPlayerIndex];
@@ -672,6 +678,7 @@ function App() {
         isMobile={isMobile}
         focusTarget={computedFocusTarget}
         validPlacements={gameState.turnPhase === 'PlaceTile' ? validPlacements : []}
+        currentRotation={rotation}
         meepleTilePosition={
           gameState.turnPhase === 'PlaceMeeple' &&
             (gameState.remainingMeeples[currentPlayer]?.standard ?? 0) > 0
