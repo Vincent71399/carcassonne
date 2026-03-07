@@ -237,7 +237,7 @@ export const Board: React.FC<BoardProps> = ({ state, pan, setPan, zoom, setZoom,
                 })}
                 {validPlacements.map((pos, idx) => (
                     <div
-                        key={`valid-${pos.x}-${pos.y}-${idx}`}
+                        key={`valid-${state.currentPlayerIndex}-${pos.x}-${pos.y}-${idx}`}
                         style={{
                             position: 'absolute',
                             left: pos.x * 100 - 45,

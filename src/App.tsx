@@ -50,6 +50,17 @@ const AUDIO_MAP = {
   monastery: scoreMonastery,
 };
 
+// Singleton audio instances to avoid hitting iOS object limits
+const audioPool: Record<string, HTMLAudioElement> = {};
+const getAudio = (category: string) => {
+  const soundFile = AUDIO_MAP[category as keyof typeof AUDIO_MAP];
+  if (!soundFile) return null;
+  if (!audioPool[category]) {
+    audioPool[category] = new Audio(soundFile);
+  }
+  return audioPool[category];
+};
+
 import { useTranslation } from 'react-i18next';
 
 function App() {
@@ -260,9 +271,9 @@ function App() {
     if (gameState?.turnPhase === 'Score' && gameState?.scoreUpdates?.length) {
       // Play scoring sound
       const update = gameState.scoreUpdates[0];
-      const soundFile = AUDIO_MAP[update.category];
-      if (soundFile && !isMuted) {
-        const audio = new Audio(soundFile);
+      const audio = getAudio(update.category);
+      if (audio && !isMuted) {
+        audio.currentTime = 0;
         audio.play().catch(e => console.log('Audio play failed:', e));
       }
 
