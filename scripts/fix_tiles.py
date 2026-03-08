@@ -1,18 +1,17 @@
 import re
+import os
 
-with open('src/engine/tiles.ts', 'r', encoding='utf-8') as f:
+# Get path relative to this script
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+TILES_TS = os.path.join(SCRIPT_DIR, '..', 'src', 'engine', 'tiles.ts')
+
+with open(TILES_TS, 'r', encoding='utf-8') as f:
     content = f.read()
 
 # Step 1: Remove all injected fieldConnections inside the edges object
 content = re.sub(r',?\s*fieldConnections:\s*\[\[.*?\]\]', '', content)
 
 # Step 2: Inject them correctly.
-# The tile object ends with either monastery: ..., cityConnections: ..., roadConnections: ..., pennants: ...
-# We want to insert just before the outer `}` of the object.
-# Find `    },` or `    }` that closes the tile object.
-# The tile objects are elements of BASE_TILES array.
-# Let's do it right:
-
 field_data = {
     'A': "[['top-0', 'top-1', 'top-2', 'right-0', 'right-1', 'right-2', 'bottom-0', 'bottom-1', 'bottom-2', 'left-0', 'left-1', 'left-2']]",
     'B': "[['top-0', 'top-1', 'top-2', 'right-0', 'right-1', 'right-2', 'bottom-0', 'bottom-2', 'left-0', 'left-1', 'left-2']]",
@@ -52,7 +51,7 @@ for tid, fields in field_data.items():
 
     content = re.sub(pattern, repl, content)
 
-with open('src/engine/tiles.ts', 'w', encoding='utf-8') as f:
+with open(TILES_TS, 'w', encoding='utf-8') as f:
     f.write(content)
 
-print("Tiles fixed and re-injected!")
+print(f"Tiles fixed and re-injected in {TILES_TS}!")

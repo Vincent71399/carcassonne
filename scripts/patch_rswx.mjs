@@ -1,10 +1,12 @@
 import fs from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 
-const tilesFile = 'c:/Users/lutar/.gemini/antigravity/playground/exo-helix/src/engine/tiles.ts';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const tilesFile = join(__dirname, '../src/engine/tiles.ts');
+
 let content = fs.readFileSync(tilesFile, 'utf8');
-
-// For R and S (cities on left and right, fields top and bottom)
-// For W and X (cities right/bottom/left, road on top, fields are the two small top corners left and right of the road)
 
 const polygonsData = {
     'R': `['0,0 100,0 100,20 0,20 0,0', '0,80 100,80 100,100 0,100 0,80']`,

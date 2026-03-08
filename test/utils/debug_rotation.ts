@@ -1,8 +1,8 @@
-import { rotateEdges, edgeMatches } from './src/engine/board';
-import { BASE_TILES } from './src/engine/tiles';
+import { rotateEdges, edgeMatches } from '../../src/engine/board';
+import { BASE_TILES } from '../../src/engine/tiles';
 
-const tileD = BASE_TILES.find(t => t.typeId === 'D'); // top: c, right: r, bottom: f, left: r
-const tileV = BASE_TILES.find(t => t.typeId === 'V'); // top: f, right: f, bottom: r, left: r
+const tileD = BASE_TILES.find(t => t.typeId === 'D')!; // top: r, right: r, bottom: r, left: r
+const tileV = BASE_TILES.find(t => t.typeId === 'V')!; // top: f, right: f, bottom: r, left: r
 
 // Let's say Tile D is placed at 0,0 with rotation 0.
 // We want to place Tile V at 1,0 (to the right of D).
@@ -22,7 +22,7 @@ for (let r = 0; r < 4; r++) {
 }
 
 // Now let's try something that SHOULD fail: placing A (all fields) next to D's right edge (road).
-const tileA = BASE_TILES.find(t => t.typeId === 'A');
+const tileA = BASE_TILES.find(t => t.typeId === 'A')!;
 console.log("\nPlacing A to the right of D (1,0):");
 for (let r = 0; r < 4; r++) {
     const aEdges = rotateEdges(tileA.edges, r);

@@ -1,4 +1,4 @@
-import { BASE_TILES } from './src/engine/tiles';
+import { BASE_TILES } from '../../src/engine/tiles';
 
 BASE_TILES.forEach(tile => {
     let hasAsymmetry = false;
