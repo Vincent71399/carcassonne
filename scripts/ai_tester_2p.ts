@@ -1,6 +1,6 @@
-import { createInitialState, placeTile, placeMeeple, skipMeeple, finishScoring, advanceTurn } from './state';
-import { calculateBestAIMove } from './ai';
-import type { PlayerType, GameState } from './types';
+import { createInitialState, placeTile, placeMeeple, skipMeeple, finishScoring, advanceTurn } from '../src/engine/state';
+import { calculateBestAIMove } from '../src/engine/ai';
+import type { PlayerType, GameState } from '../src/engine/types';
 
 interface LocalTestState extends GameState {
     pendingMeepleMove?: { featureId: string; meepleType: 'standard' } | null;

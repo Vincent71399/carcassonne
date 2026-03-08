@@ -1,6 +1,6 @@
-import { createInitialState, placeTile, placeMeeple, skipMeeple, finishScoring, advanceTurn } from './state';
-import { calculateBestAIMove } from './ai';
-import type { PlayerType, GameState } from './types';
+import { createInitialState, placeTile, placeMeeple, skipMeeple, finishScoring, advanceTurn } from '../src/engine/state';
+import { calculateBestAIMove } from '../src/engine/ai';
+import type { PlayerType, GameState } from '../src/engine/types';
 
 interface LocalTestState extends GameState {
     pendingMeepleMove?: { featureId: string; meepleType: 'standard' } | null;
@@ -60,7 +60,7 @@ async function runTournament() {
     console.log("Starting AI Tournament...");
 
     const matchups = [
-        { name: "3-Player: Computer vs Computer vs Computer", types: { 1: 'ai-easy', 2: 'ai-easy', 3: 'ai-easy' } as Record<number, PlayerType> }
+        { name: "4-Player Tournament (All Computer)", types: { 1: 'ai-easy', 2: 'ai-easy', 3: 'ai-easy', 4: 'ai-easy' } as Record<number, PlayerType> }
     ];
 
     const MATCHES_PER_PAIR = 10;

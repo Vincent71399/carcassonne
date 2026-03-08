@@ -17,7 +17,27 @@ export function evaluateFieldAttack(
     const attackerTile = board[`${currentPos.x},${currentPos.y}`];
     if (!attackerTile) return results;
 
-    // 1. Identify Target Fields (Opponent owned, in-progress)
+    // 1. Identify all cities already controlled by the attacker across the whole board
+    const attackerAlreadyControlledCities = new Set<string>();
+    const scoredFieldsForAttacker = new Set<string>();
+    for (const tileKey of Object.keys(board)) {
+        const tile = board[tileKey];
+        const def = TILES_MAP[tile.typeId];
+        if (!def?.fieldConnections) continue;
+        def.fieldConnections.forEach((_, fieldIdx) => {
+            const ev = evaluateFeature(board, tile.x, tile.y, 'field', fieldIdx);
+            const fieldKey = ev.components.map(c => `${c.tileX},${c.tileY},${c.featureId}`).sort().join('|');
+            if (scoredFieldsForAttacker.has(fieldKey)) return;
+            scoredFieldsForAttacker.add(fieldKey);
+
+            const ownership = getFeatureOwnership(ev, board);
+            if (ownership[attackerId] > 0) {
+                getFieldCities(ev, board).forEach(c => attackerAlreadyControlledCities.add(c));
+            }
+        });
+    }
+
+    // 2. Identify Target Fields (Opponent owned)
     const targetFields: FeatureEvaluation[] = [];
     const scoredTargets = new Set<string>();
 
@@ -44,22 +64,32 @@ export function evaluateFieldAttack(
 
     if (targetFields.length === 0) return results;
 
-    // 2. Did the last move place a field meeple?
-    const attackerFieldSegments = new Set<string>();
-    attackerTile.meeples.forEach(pm => {
-        if (pm.meeple.playerId === attackerId && pm.featureId.startsWith('field')) {
-            const idx = parseInt(pm.featureId.split('-')[1]);
-            const def = TILES_MAP[attackerTile.typeId];
-            if (def?.fieldConnections?.[idx]) {
-                def.fieldConnections[idx].forEach(seg => {
-                    attackerFieldSegments.add(rotateFieldSegment(seg, attackerTile.rotation));
-                });
-            }
+    // 3. Identify Attacker's Fields on the new tile
+    const attackerFeatures: FeatureEvaluation[] = [];
+    const attackerDefAtMove = TILES_MAP[attackerTile.typeId];
+    attackerDefAtMove?.fieldConnections?.forEach((_, fieldIdx) => {
+        const ev = evaluateFeature(board, currentPos.x, currentPos.y, 'field', fieldIdx);
+        const ownership = getFeatureOwnership(ev, board);
+        if (ownership[attackerId] > 0) {
+            attackerFeatures.push(ev);
         }
     });
 
-    if (attackerFieldSegments.size === 0) return results;
+    if (attackerFeatures.length === 0) return results;
 
+    const attackerOpenEdgesByJunction = new Map<string, { x: number, y: number, segment: string }[]>();
+    attackerFeatures.forEach(af => {
+        getOpenFieldEdges(af, board).forEach(oe => {
+            const dx_dir = oe.segment.split('-')[0] as EdgeDirection;
+            const jx = oe.x + (dx_dir === 'right' ? 1 : dx_dir === 'left' ? -1 : 0);
+            const jy = oe.y + (dx_dir === 'bottom' ? 1 : dx_dir === 'top' ? -1 : 0);
+            const key = `${jx},${jy}`;
+            if (!attackerOpenEdgesByJunction.has(key)) attackerOpenEdgesByJunction.set(key, []);
+            attackerOpenEdgesByJunction.get(key)!.push(oe);
+        });
+    });
+
+    // 4. Evaluate attacks on target fields
     targetFields.forEach(target => {
         const targetOpenEdges = getOpenFieldEdges(target, board);
         const targetOwnerShip = getFeatureOwnership(target, board);
@@ -68,26 +98,25 @@ export function evaluateFieldAttack(
         if (!targetOwnerWinner) return;
         const targetOwnerId = Number(targetOwnerWinner);
 
+        const seenJunctionsForThisTarget = new Set<string>();
+
         targetOpenEdges.forEach(targetEdge => {
             const dx_dir = targetEdge.segment.split('-')[0] as EdgeDirection;
             const jx = targetEdge.x + (dx_dir === 'right' ? 1 : dx_dir === 'left' ? -1 : 0);
             const jy = targetEdge.y + (dx_dir === 'bottom' ? 1 : dx_dir === 'top' ? -1 : 0);
+            const junctionKey = `${jx},${jy}`;
 
-            if (board[`${jx},${jy}`]) return;
+            if (board[junctionKey] || seenJunctionsForThisTarget.has(junctionKey)) return;
+            seenJunctionsForThisTarget.add(junctionKey);
 
-            const dx = Math.abs(currentPos.x - jx);
-            const dy = Math.abs(currentPos.y - jy);
-
-            if ((dx === 1 && dy === 0) || (dx === 0 && dy === 1)) {
-                const dirToJunction = currentPos.x < jx ? 'right' : currentPos.x > jx ? 'left' : currentPos.y < jy ? 'bottom' : 'top';
-                // Check if any attacker segment faces the junction
-                const facingAttackerSeg = Array.from(attackerFieldSegments).find(seg => seg.startsWith(dirToJunction));
-                if (facingAttackerSeg) {
-                    const connectingTiles = findConnectingFieldTiles(jx, jy, targetEdge.segment, facingAttackerSeg, hand, deck);
+            const matchingAttackerEdges = attackerOpenEdgesByJunction.get(junctionKey);
+            if (matchingAttackerEdges) {
+                matchingAttackerEdges.forEach(attackerEdge => {
+                    const connectingTiles = findConnectingFieldTiles(jx, jy, targetEdge.segment, attackerEdge.segment, hand, deck);
                     if (connectingTiles.count > 0) {
-                        // Aggregate meeples across segments while avoiding double counting
                         const attackerMeeplesPerPid: Record<PlayerId, number> = {};
                         allPlayerIds.forEach(pid => { attackerMeeplesPerPid[pid] = 0; });
+
                         const processedFeatures = new Set<string>();
 
                         const dirsToCheck: EdgeDirection[] = ['top', 'right', 'bottom', 'left'];
@@ -99,10 +128,10 @@ export function evaluateFieldAttack(
 
                             const nDef = TILES_MAP[nTile.typeId];
                             const oppositeDir = dir === 'top' ? 'bottom' : dir === 'bottom' ? 'top' : dir === 'left' ? 'right' : 'left';
+                            const origDir = getOriginalDir(oppositeDir, nTile.rotation);
 
                             nDef.fieldConnections?.forEach((conn, fIdx) => {
-                                // Check if this field connection has ANY segment on the oppositeDir edge
-                                if (conn.some(seg => seg.startsWith(getOriginalDir(oppositeDir, nTile.rotation)))) {
+                                if (conn.some(seg => seg.startsWith(origDir))) {
                                     const ev = evaluateFeature(board, nx, ny, 'field', fIdx);
                                     const featureKey = ev.components.map(c => `${c.tileX},${c.tileY},${c.featureId}`).sort().join('|');
                                     if (processedFeatures.has(featureKey)) return;
@@ -117,31 +146,28 @@ export function evaluateFieldAttack(
                         });
 
                         const A_total = attackerMeeplesPerPid[attackerId] || 0;
-                        const A_ready = A_total - 1; // Subtract the meeple we just placed to see if we HAD enough
                         const O_count = Math.max(...allPlayerIds.filter(pid => pid !== attackerId).map(pid => attackerMeeplesPerPid[pid] || 0), 0);
 
                         if (A_total >= O_count) {
                             const pFactor = connectingTiles.inHand ? 1 :
                                 calculatePossibilityFactor(connectingTiles.count, deck.length, allPlayerIds.length);
 
-                            const fieldPoints = calculateFieldPoints(target, board);
+                            const targetCities = getFieldCities(target, board);
+                            let newCitiesCount = 0;
+                            targetCities.forEach(cKey => {
+                                if (!attackerAlreadyControlledCities.has(cKey)) {
+                                    newCitiesCount++;
+                                }
+                            });
 
-                            let A_gain = fieldPoints * pFactor;
-                            if (A_ready > O_count) A_gain = 0; // Redundant
-
-                            let O_loss = 0;
-                            if (A_total > O_count) O_loss = fieldPoints * pFactor;
+                            const A_gain = newCitiesCount * 3 * pFactor;
+                            const O_loss = (A_total > O_count) ? targetCities.size * 3 * pFactor : 0;
 
                             results[attackerId] = Math.max(results[attackerId], A_gain);
-                            results[targetOwnerId] = Math.min(results[targetOwnerId], -O_loss);
+                            results[targetOwnerId] = Math.min(results[targetOwnerId], -O_loss) || 0;
                         }
                     }
-                }
-            } else if ((dx === 1 && dy === 1) || (dx === 2 && dy === 0) || (dx === 0 && dy === 2)) {
-                // Diagonal or jump logic? (Already handled by junction selection in next iteration? No.)
-                // For simplicity, let's stick to the 1st step neighbor logic for now, similar to city/road.
-                // Wait! In city/road we ONLY do (dx=1, dy=0) or (dx=0, dy=1) junction distance?
-                // Let's re-verify city/road.
+                });
             }
         });
     });
@@ -149,9 +175,7 @@ export function evaluateFieldAttack(
     return results;
 }
 
-
-
-function calculateFieldPoints(ev: FeatureEvaluation, board: GameState['board']): number {
+function getFieldCities(ev: FeatureEvaluation, board: GameState['board']): Set<string> {
     const adjacentCityKeys = new Set<string>();
     ev.components.forEach(comp => {
         const compTile = board[`${comp.tileX},${comp.tileY}`];
@@ -168,7 +192,7 @@ function calculateFieldPoints(ev: FeatureEvaluation, board: GameState['board']):
             }
         });
     });
-    return adjacentCityKeys.size * 3;
+    return adjacentCityKeys;
 }
 
 /**
@@ -375,33 +399,62 @@ export function evaluateCityAttack(
 
     if (targetCities.length === 0) return results;
 
-    // 2. Did the last move place a city tile?
-    const attackerDef = TILES_MAP[attackerTile.typeId];
-    if (!attackerDef?.cityConnections) return results;
+    // 2. Identify Attacker's Cities on the new tile
+    const attackerCities: FeatureEvaluation[] = [];
+    const attackerDefForMeeple = TILES_MAP[attackerTile.typeId];
+    attackerDefForMeeple?.cityConnections?.forEach((_: EdgeDirection[], i: number) => {
+        const ev = evaluateFeature(board, ax, ay, 'city', i);
+        const ownership = getFeatureOwnership(ev, board);
+        if (ownership[attackerId] > 0) {
+            attackerCities.push(ev);
+        }
+    });
 
+    if (attackerCities.length === 0) return results;
+
+    const attackerOpenEdgesByJunction = new Map<string, { x: number, y: number, dir: EdgeDirection }[]>();
+    attackerCities.forEach(ac => {
+        getOpenCityEdges(ac, board).forEach(oe => {
+            const jx = oe.x + (oe.dir === 'right' ? 1 : oe.dir === 'left' ? -1 : 0);
+            const jy = oe.y + (oe.dir === 'bottom' ? 1 : oe.dir === 'top' ? -1 : 0);
+            const key = `${jx},${jy}`;
+            if (!attackerOpenEdgesByJunction.has(key)) attackerOpenEdgesByJunction.set(key, []);
+            attackerOpenEdgesByJunction.get(key)!.push(oe);
+        });
+    });
+
+    // 3. Evaluate attacks on target cities
     targetCities.forEach(target => {
         const targetOpenEdges = getOpenCityEdges(target, board);
-        const targetValue = new Set(target.components.map(c => `${c.tileX},${c.tileY}`)).size; // tiles
-        // Get target owner (majority)
+        const targetValue = new Set(target.components.map(c => `${c.tileX},${c.tileY}`)).size * 2;
+
         const targetOwnerShip = getFeatureOwnership(target, board);
         const targetWinners = getFeatureWinners(targetOwnerShip);
-        const targetOwnerId = targetWinners.find(w => w !== 'neutral' && w !== attackerId);
-        if (!targetOwnerId) return;
+        const targetOwnerWinner = targetWinners.find(w => w !== 'neutral' && w !== attackerId);
+        if (!targetOwnerWinner) return;
+        const targetOwnerId = Number(targetOwnerWinner);
+
+        const seenJunctionsForThisTarget = new Set<string>();
 
         targetOpenEdges.forEach(targetEdge => {
             const jx = targetEdge.x + (targetEdge.dir === 'right' ? 1 : targetEdge.dir === 'left' ? -1 : 0);
             const jy = targetEdge.y + (targetEdge.dir === 'bottom' ? 1 : targetEdge.dir === 'top' ? -1 : 0);
-            if (board[`${jx},${jy}`]) return;
+            const junctionKey = `${jx},${jy}`;
 
-            const dx = Math.abs(ax - jx);
-            const dy = Math.abs(ay - jy);
-            if ((dx === 1 && dy === 0) || (dx === 0 && dy === 1)) {
-                const dirToJunction = ax < jx ? 'right' : ax > jx ? 'left' : ay < jy ? 'bottom' : 'top';
-                const attackerEdges = rotateEdges(attackerDef.edges, attackerTile.rotation);
-                if (attackerEdges[dirToJunction][0] === 'city') {
-                    const connectingTiles = findConnectingTiles(jx, jy, targetEdge.dir, dirToJunction, attackerHand, deck);
+            if (board[junctionKey] || seenJunctionsForThisTarget.has(junctionKey)) return;
+            seenJunctionsForThisTarget.add(junctionKey);
+
+            const matchingAttackerEdges = attackerOpenEdgesByJunction.get(junctionKey);
+            if (matchingAttackerEdges) {
+                matchingAttackerEdges.forEach(attackerEdge => {
+                    const connectingTiles = findConnectingTiles(jx, jy, targetEdge.dir, attackerEdge.dir, attackerHand, deck);
                     if (connectingTiles.count > 0) {
-                        // Aggregate meeples across segments while avoiding double counting
+                        const attackerCity = attackerCities.find(ac =>
+                            getOpenCityEdges(ac, board).some(oe => oe.x === attackerEdge.x && oe.y === attackerEdge.y && oe.dir === attackerEdge.dir)
+                        );
+                        if (!attackerCity) return;
+                        const attackerCityValue = new Set(attackerCity.components.map(c => `${c.tileX},${c.tileY}`)).size * 2;
+
                         let attackerMeeples = 0;
                         let opponentMeeples = 0;
                         const processedFeatures = new Set<string>();
@@ -425,48 +478,33 @@ export function evaluateCityAttack(
 
                                     const ownership = getFeatureOwnership(ev, board);
                                     attackerMeeples += (ownership[attackerId] || 0);
-
-                                    // For simplicity, we assume the main target owner is the only meaningful opponent to track
-                                    opponentMeeples = Math.max(opponentMeeples, ownership[Number(targetOwnerId)] || 0);
+                                    opponentMeeples = Math.max(opponentMeeples, ownership[targetOwnerId] || 0);
                                 }
                             });
                         });
 
-                        // Check meeple on the tile just placed
-                        let moveHasMeepleForAttack = false;
-                        attackerTile.meeples.forEach(pm => {
-                            if (pm.meeple.playerId === attackerId && pm.featureId.startsWith('city')) {
-                                moveHasMeepleForAttack = true;
-                            }
-                        });
-
                         const A_total = attackerMeeples;
-                        const A_ready = moveHasMeepleForAttack ? A_total - 1 : A_total;
                         const O_count = opponentMeeples;
+                        const pFactor = connectingTiles.inHand ? 1 :
+                            calculatePossibilityFactor(connectingTiles.count, deck.length, players.length);
 
+                        // Attacker Gain (if they can reach/exceed opponent)
                         if (A_total >= O_count) {
-                            const pFactor = connectingTiles.inHand ? 1 :
-                                calculatePossibilityFactor(connectingTiles.count, deck.length, players.length);
+                            results[attackerId] = Math.max(results[attackerId], targetValue * pFactor);
+                        }
 
-                            const cityPoints = targetValue * 2;
+                        // Opponent Gain (if they can reach/exceed attacker)
+                        if (O_count >= A_total) {
+                            results[targetOwnerId] = Math.max(results[targetOwnerId], attackerCityValue * pFactor);
+                        }
 
-                            // Attacker Gain
-                            let A_gain = cityPoints * pFactor;
-                            if (A_ready > O_count) {
-                                A_gain = 0; // Redundant placement
-                            }
-
-                            // Owner Loss
-                            let O_loss = 0;
-                            if (A_total > O_count) {
-                                O_loss = cityPoints * pFactor;
-                            }
-
-                            results[attackerId] = Math.max(results[attackerId], A_gain);
-                            results[Number(targetOwnerId)] = Math.min(results[Number(targetOwnerId)], -O_loss);
+                        // Owner Loss (if attacker wins)
+                        if (A_total > O_count) {
+                            const newLoss = -targetValue * pFactor;
+                            results[targetOwnerId] = Math.min(results[targetOwnerId] || 0, newLoss);
                         }
                     }
-                }
+                });
             }
         });
     });
@@ -518,32 +556,62 @@ export function evaluateRoadAttack(
 
     if (targetRoads.length === 0) return results;
 
-    // 2. Did the last move place a road tile?
-    const attackerDef = TILES_MAP[attackerTile.typeId];
-    if (!attackerDef?.roadConnections) return results;
+    // 2. Identify Attacker's Roads on the new tile
+    const attackerRoads: FeatureEvaluation[] = [];
+    const attackerDefAtMove = TILES_MAP[attackerTile.typeId];
+    attackerDefAtMove?.roadConnections?.forEach((_: EdgeDirection[], i: number) => {
+        const ev = evaluateFeature(board, ax, ay, 'road', i);
+        const ownership = getFeatureOwnership(ev, board);
+        if (ownership[attackerId] > 0) {
+            attackerRoads.push(ev);
+        }
+    });
 
+    if (attackerRoads.length === 0) return results;
+
+    const attackerOpenEdgesByJunction = new Map<string, { x: number, y: number, dir: EdgeDirection }[]>();
+    attackerRoads.forEach(ar => {
+        getOpenRoadEdges(ar, board).forEach(oe => {
+            const jx = oe.x + (oe.dir === 'right' ? 1 : oe.dir === 'left' ? -1 : 0);
+            const jy = oe.y + (oe.dir === 'bottom' ? 1 : oe.dir === 'top' ? -1 : 0);
+            const key = `${jx},${jy}`;
+            if (!attackerOpenEdgesByJunction.has(key)) attackerOpenEdgesByJunction.set(key, []);
+            attackerOpenEdgesByJunction.get(key)!.push(oe);
+        });
+    });
+
+    // 3. Evaluate attacks on target roads
     targetRoads.forEach(target => {
         const targetOpenEdges = getOpenRoadEdges(target, board);
         const targetValue = new Set(target.components.map(c => `${c.tileX},${c.tileY}`)).size; // tiles
 
         const targetOwnerShip = getFeatureOwnership(target, board);
         const targetWinners = getFeatureWinners(targetOwnerShip);
-        const targetOwnerId = targetWinners.find(w => w !== 'neutral' && w !== attackerId);
-        if (!targetOwnerId) return;
+        const targetOwnerWinner = targetWinners.find(w => w !== 'neutral' && w !== attackerId);
+        if (!targetOwnerWinner) return;
+        const targetOwnerId = Number(targetOwnerWinner);
+
+        const seenJunctionsForThisTarget = new Set<string>();
 
         targetOpenEdges.forEach(targetEdge => {
             const jx = targetEdge.x + (targetEdge.dir === 'right' ? 1 : targetEdge.dir === 'left' ? -1 : 0);
             const jy = targetEdge.y + (targetEdge.dir === 'bottom' ? 1 : targetEdge.dir === 'top' ? -1 : 0);
-            if (board[`${jx},${jy}`]) return;
+            const junctionKey = `${jx},${jy}`;
 
-            const dx = Math.abs(ax - jx);
-            const dy = Math.abs(ay - jy);
-            if ((dx === 1 && dy === 0) || (dx === 0 && dy === 1)) {
-                const dirToJunction = ax < jx ? 'right' : ax > jx ? 'left' : ay < jy ? 'bottom' : 'top';
-                const attackerEdges = rotateEdges(attackerDef.edges, attackerTile.rotation);
-                if (attackerEdges[dirToJunction][1] === 'road') {
-                    const connectingTiles = findConnectingRoadTiles(jx, jy, targetEdge.dir, dirToJunction, attackerHand, deck);
+            if (board[junctionKey] || seenJunctionsForThisTarget.has(junctionKey)) return;
+            seenJunctionsForThisTarget.add(junctionKey);
+
+            const matchingAttackerEdges = attackerOpenEdgesByJunction.get(junctionKey);
+            if (matchingAttackerEdges) {
+                matchingAttackerEdges.forEach(attackerEdge => {
+                    const connectingTiles = findConnectingRoadTiles(jx, jy, targetEdge.dir, attackerEdge.dir, attackerHand, deck);
                     if (connectingTiles.count > 0) {
+                        const attackerRoad = attackerRoads.find(ar =>
+                            getOpenRoadEdges(ar, board).some(oe => oe.x === attackerEdge.x && oe.y === attackerEdge.y && oe.dir === attackerEdge.dir)
+                        );
+                        if (!attackerRoad) return;
+                        const attackerRoadValue = new Set(attackerRoad.components.map(c => `${c.tileX},${c.tileY}`)).size;
+
                         let attackerMeeples = 0;
                         let opponentMeeples = 0;
                         const processedFeatures = new Set<string>();
@@ -567,43 +635,33 @@ export function evaluateRoadAttack(
 
                                     const ownership = getFeatureOwnership(ev, board);
                                     attackerMeeples += (ownership[attackerId] || 0);
-                                    opponentMeeples = Math.max(opponentMeeples, ownership[Number(targetOwnerId)] || 0);
+                                    opponentMeeples = Math.max(opponentMeeples, ownership[targetOwnerId] || 0);
                                 }
                             });
                         });
 
-                        let moveHasMeepleForAttack = false;
-                        attackerTile.meeples.forEach(pm => {
-                            if (pm.meeple.playerId === attackerId && pm.featureId.startsWith('road')) {
-                                moveHasMeepleForAttack = true;
-                            }
-                        });
-
                         const A_total = attackerMeeples;
-                        const A_ready = moveHasMeepleForAttack ? A_total - 1 : A_total;
                         const O_count = opponentMeeples;
+                        const pFactor = connectingTiles.inHand ? 1 :
+                            calculatePossibilityFactor(connectingTiles.count, deck.length, players.length);
 
+                        // Attacker Gain
                         if (A_total >= O_count) {
-                            const pFactor = connectingTiles.inHand ? 1 :
-                                calculatePossibilityFactor(connectingTiles.count, deck.length, players.length);
+                            results[attackerId] = Math.max(results[attackerId], targetValue * pFactor);
+                        }
 
-                            const roadPoints = targetValue;
+                        // Opponent Gain
+                        if (O_count >= A_total) {
+                            results[targetOwnerId] = Math.max(results[targetOwnerId], attackerRoadValue * pFactor);
+                        }
 
-                            let A_gain = roadPoints * pFactor;
-                            if (A_ready > O_count) {
-                                A_gain = 0;
-                            }
-
-                            let O_loss = 0;
-                            if (A_total > O_count) {
-                                O_loss = roadPoints * pFactor;
-                            }
-
-                            results[attackerId] = Math.max(results[attackerId], A_gain);
-                            results[Number(targetOwnerId)] = Math.min(results[Number(targetOwnerId)], -O_loss);
+                        // Owner Loss
+                        if (A_total > O_count) {
+                            const newLoss = -targetValue * pFactor;
+                            results[targetOwnerId] = Math.min(results[targetOwnerId] || 0, newLoss);
                         }
                     }
-                }
+                });
             }
         });
     });
