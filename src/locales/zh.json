@@ -71,7 +71,10 @@
             "roadInProgress": "进行中道路 Δ",
             "monasteryInProgress": "进行中修道院 Δ",
             "fieldDelta": "草地分数 Δ",
-            "meepleUsage": "随从使用评分"
+            "meepleUsage": "随从使用评分",
+            "cityAttack": "进攻对方城市评分",
+            "roadAttack": "进攻对方道路评分",
+            "fieldAttack": "进攻对方草原评分"
         }
     },
     "deckViewer": {

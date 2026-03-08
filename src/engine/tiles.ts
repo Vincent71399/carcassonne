@@ -38,7 +38,8 @@ export const BASE_TILES: TileDefinition[] = [
         typeId: 'E', count: 4,
         edges: { top: f, right: f, bottom: f, left: f },
         monastery: true,
-        fieldConnections: [['top-0', 'top-1', 'top-2', 'right-0', 'right-1', 'right-2', 'bottom-0', 'bottom-1', 'bottom-2', 'left-0', 'left-1', 'left-2']]
+        fieldConnections: [['top-0', 'top-1', 'top-2', 'right-0', 'right-1', 'right-2', 'bottom-0', 'bottom-1', 'bottom-2', 'left-0', 'left-1', 'left-2']],
+        adjacentCities: [[]]
     },
     {
         typeId: 'F', count: 2,

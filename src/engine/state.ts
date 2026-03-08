@@ -9,7 +9,10 @@ import {
     evaluateGainScoreRoad_InProgress,
     evaluateGainScoreMonastery_InProgress,
     evaluateGainScoreField,
-    evaluateMeepleUsage
+    evaluateMeepleUsage,
+    evaluateCityAttack,
+    evaluateRoadAttack,
+    evaluateFieldAttack
 } from './aiEvaluators_experiment';
 
 export function createInitialState(
@@ -254,7 +257,10 @@ export function endTurn(state: GameState) {
             roadInProgress: evaluateGainScoreRoad_InProgress(boardBeforeMove, state.board, x, y, state.players),
             monasteryInProgress: evaluateGainScoreMonastery_InProgress(boardBeforeMove, state.board, x, y, state.players),
             field: evaluateGainScoreField(boardBeforeMove, state.board, state.players),
-            meepleUsage
+            meepleUsage,
+            cityAttack: evaluateCityAttack(state.board, playerId, state.players, { x, y }, state.hands[playerId], state.deck),
+            roadAttack: evaluateRoadAttack(state.board, playerId, state.players, { x, y }, state.hands[playerId], state.deck),
+            fieldAttack: evaluateFieldAttack(state.board, playerId, state.players, { x, y }, state.hands[playerId], state.deck)
         };
     }
 

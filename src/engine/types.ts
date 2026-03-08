@@ -100,5 +100,8 @@ export interface GameState {
         monasteryInProgress: Record<PlayerId | 'neutral', number>;
         field: Record<PlayerId | 'neutral', number>;
         meepleUsage: Record<PlayerId | 'neutral', number>;
+        cityAttack: Record<PlayerId | 'neutral', number>;
+        roadAttack: Record<PlayerId | 'neutral', number>;
+        fieldAttack: Record<PlayerId | 'neutral', number>;
     };
 }

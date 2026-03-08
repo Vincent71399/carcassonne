@@ -71,7 +71,10 @@
             "roadInProgress": "Road In-Progress Δ",
             "monasteryInProgress": "Monastery In-Progress Δ",
             "fieldDelta": "Field Score Δ",
-            "meepleUsage": "Meeple Usage Score"
+            "meepleUsage": "Meeple Usage Score",
+            "cityAttack": "City Attack Score",
+            "roadAttack": "Road Attack Score",
+            "fieldAttack": "Field Attack Score"
         }
     },
     "deckViewer": {

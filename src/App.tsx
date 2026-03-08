@@ -694,7 +694,10 @@ function App() {
                 { label: t('game.eval.roadInProgress'), data: gameState.lastMoveEvaluation.roadInProgress },
                 { label: t('game.eval.monasteryInProgress'), data: gameState.lastMoveEvaluation.monasteryInProgress },
                 { label: t('game.eval.fieldDelta'), data: gameState.lastMoveEvaluation.field },
-                { label: t('game.eval.meepleUsage'), data: gameState.lastMoveEvaluation.meepleUsage }
+                { label: t('game.eval.meepleUsage'), data: gameState.lastMoveEvaluation.meepleUsage },
+                { label: t('game.eval.cityAttack'), data: gameState.lastMoveEvaluation.cityAttack },
+                { label: t('game.eval.roadAttack'), data: gameState.lastMoveEvaluation.roadAttack },
+                { label: t('game.eval.fieldAttack'), data: gameState.lastMoveEvaluation.fieldAttack }
               ].map((row, idx) => (
                 <React.Fragment key={idx}>
                   <span style={{ color: '#666' }}>{row.label}:</span>
