@@ -58,10 +58,20 @@
         "tileId": "板块 {{id}}",
         "midGame": "游戏中",
         "categories": {
-            "city": "城堡",
+            "city": "城镇",
             "road": "道路",
             "monastery": "修道院",
             "field": "草地"
+        },
+        "aiExperimentMode": "AI 评估器 (实验模式)",
+        "lastMoveBy": "上一步执行者: {{name}}",
+        "eval": {
+            "complete": "获得分数",
+            "cityInProgress": "进行中城镇 Δ",
+            "roadInProgress": "进行中道路 Δ",
+            "monasteryInProgress": "进行中修道院 Δ",
+            "fieldDelta": "草地分数 Δ",
+            "meepleUsage": "随从使用评分"
         }
     },
     "deckViewer": {

@@ -1,7 +1,16 @@
-import type { GameState, TileDefinition, PlayerId, PlayerType, MeepleType, ScoreUpdate } from './types';
+import type { GameState, TileDefinition, PlayerId, PlayerType, MeepleType, ScoreUpdate, PlacedMeeple, PlacedTile } from './types';
 import { generateDeck } from './tiles';
 import { isValidPlacement } from './board';
 import { checkAndScoreFeatures, scoreEndGame } from './scoring';
+import { AI_EXPERIMENT_MODE } from './constants';
+import {
+    evaluateGainScoreComplete,
+    evaluateGainScoreCity_InProgress,
+    evaluateGainScoreRoad_InProgress,
+    evaluateGainScoreMonastery_InProgress,
+    evaluateGainScoreField,
+    evaluateMeepleUsage
+} from './aiEvaluators_experiment';
 
 export function createInitialState(
     playerNames: Record<PlayerId, string>,
@@ -202,14 +211,54 @@ export function advanceTurn(state: GameState) {
 // ─── Public turn functions ────────────────────────────────────────────────────
 
 export function endTurn(state: GameState) {
+    const playerId = state.players[state.currentPlayerIndex];
+    if (!state.recentTilePosition) return;
+
+    const { x, y } = state.recentTilePosition;
+
+    // 1. Board state AFTER the move was performed (tile placed, meeple optional) but BEFORE scoring.
+    const boardAfterMove: Record<string, PlacedTile> = JSON.parse(JSON.stringify(state.board));
+    const placedTile = boardAfterMove[`${x},${y}`];
+
+    // 2. Board state BEFORE the move was performed (simulate removal of the recent tile).
+    const boardBeforeMove = JSON.parse(JSON.stringify(boardAfterMove));
+    delete boardBeforeMove[`${x},${y}`];
+
     // checkAndScoreFeatures is now PURE — only computes updates, no mutations
+    const meeplesBeforeScoring: Record<PlayerId, Record<MeepleType, number>> = JSON.parse(JSON.stringify(state.remainingMeeples));
     const updates = checkAndScoreFeatures(state);
 
     if (updates.length > 0) {
-        // _serveQueue applies the first update's mutations and queues the rest
+        // _serveQueue applies the first update's mutations (awards points, removes meeples)
         _serveQueue(state, updates, false /* not end-game */);
-        return;
     }
+
+    // 3. Current state.board is now "boardAfterScoring" (if updates were served, meeples are gone).
+
+    // If experiment mode is on, capture the evaluation of what just happened
+    if (AI_EXPERIMENT_MODE) {
+        const didPlaceMeeple = placedTile.meeples.some((m: PlacedMeeple) => m.meeple.playerId === playerId);
+        const meepleUsage: Record<PlayerId | 'neutral', number> = { neutral: 0 };
+        state.players.forEach(p => {
+            let countBefore = meeplesBeforeScoring[p].standard;
+            if (p === playerId && didPlaceMeeple) {
+                countBefore += 1;
+            }
+            meepleUsage[p] = evaluateMeepleUsage(countBefore, state.remainingMeeples[p].standard);
+        });
+
+        state.lastMoveEvaluation = {
+            playerId,
+            complete: evaluateGainScoreComplete(boardAfterMove, x, y, placedTile, state.players),
+            cityInProgress: evaluateGainScoreCity_InProgress(boardBeforeMove, state.board, x, y, state.players),
+            roadInProgress: evaluateGainScoreRoad_InProgress(boardBeforeMove, state.board, x, y, state.players),
+            monasteryInProgress: evaluateGainScoreMonastery_InProgress(boardBeforeMove, state.board, x, y, state.players),
+            field: evaluateGainScoreField(boardBeforeMove, state.board, state.players),
+            meepleUsage
+        };
+    }
+
+    if (updates.length > 0) return;
 
     // Only delay if the NEXT player is an AI
     const nextPlayerIndex = (state.currentPlayerIndex + 1) % state.players.length;

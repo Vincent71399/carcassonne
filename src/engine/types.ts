@@ -92,4 +92,13 @@ export interface GameState {
     scoreUpdateKey: number; // Incremented each time a new pop-up is served (triggers the timer)
     endGameMode: boolean; // True when draining end-game queue (mutations applied lazily)
     endGameScoreBreakdown?: Record<PlayerId, Record<'city' | 'road' | 'monastery' | 'field', number>>;
+    lastMoveEvaluation?: {
+        playerId: PlayerId;
+        complete: Record<PlayerId | 'neutral', number>;
+        cityInProgress: Record<PlayerId | 'neutral', number>;
+        roadInProgress: Record<PlayerId | 'neutral', number>;
+        monasteryInProgress: Record<PlayerId | 'neutral', number>;
+        field: Record<PlayerId | 'neutral', number>;
+        meepleUsage: Record<PlayerId | 'neutral', number>;
+    };
 }

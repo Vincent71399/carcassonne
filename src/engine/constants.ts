@@ -6,6 +6,7 @@ export const PLAYER_COLORS: Record<number, string> = {
 };
 
 export const DEBUG_MODE = false;
+export const AI_EXPERIMENT_MODE = false;
 
 export const FEATURE_COLORS = {
     city: '#cda87a',

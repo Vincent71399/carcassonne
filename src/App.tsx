@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Board } from './components/Board';
 import { Hand } from './components/Hand';
 import { DeckViewer } from './components/DeckViewer';
 import { createInitialState, placeTile, placeMeeple, skipMeeple, finishScoring, advanceTurn } from './engine/state';
 import { calculateBestAIMove } from './engine/ai';
-import { PLAYER_COLORS, FEATURE_COLORS, UI_COLORS, DEBUG_MODE } from './engine/constants';
+import { PLAYER_COLORS, FEATURE_COLORS, UI_COLORS, DEBUG_MODE, AI_EXPERIMENT_MODE } from './engine/constants';
 import { getValidPlacements } from './engine/board';
 import { BASE_TILES } from './engine/tiles';
 import { TileRenderer } from './components/TileRenderer';
@@ -670,6 +670,64 @@ function App() {
             </div>
           );
         })}
+
+        {/* AI Experiment Evaluators Box */}
+        {AI_EXPERIMENT_MODE && gameState.lastMoveEvaluation && (
+          <div style={{
+            marginTop: '16px',
+            paddingTop: '16px',
+            borderTop: '1px solid rgba(0,0,0,0.1)',
+            fontSize: '12px',
+            color: '#555'
+          }}>
+            <div style={{ fontWeight: 'bold', marginBottom: '8px', color: '#333', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ fontSize: '14px' }}>🧪</span> {t('game.aiExperimentMode')}
+            </div>
+            <div style={{ fontSize: '11px', color: '#888', marginBottom: '8px' }}>
+              {t('game.lastMoveBy', { name: gameState.playerNames[gameState.lastMoveEvaluation.playerId] || t('startScreen.playerPlaceholder', { id: gameState.lastMoveEvaluation.playerId }) })}
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '8px 12px', alignItems: 'center' }}>
+              {[
+                { label: t('game.eval.complete'), data: gameState.lastMoveEvaluation.complete },
+                { label: t('game.eval.cityInProgress'), data: gameState.lastMoveEvaluation.cityInProgress },
+                { label: t('game.eval.roadInProgress'), data: gameState.lastMoveEvaluation.roadInProgress },
+                { label: t('game.eval.monasteryInProgress'), data: gameState.lastMoveEvaluation.monasteryInProgress },
+                { label: t('game.eval.fieldDelta'), data: gameState.lastMoveEvaluation.field },
+                { label: t('game.eval.meepleUsage'), data: gameState.lastMoveEvaluation.meepleUsage }
+              ].map((row, idx) => (
+                <React.Fragment key={idx}>
+                  <span style={{ color: '#666' }}>{row.label}:</span>
+                  <div style={{ textAlign: 'right', display: 'flex', gap: '4px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                    {gameState.players.map((pid, pIdx) => {
+                      const val = row.data[pid] || 0;
+                      const color = PLAYER_COLORS[pid] || '#999';
+                      return (
+                        <span key={pid} style={{
+                          fontWeight: 'bold',
+                          color: val > 0 ? UI_COLORS.success : (val < 0 ? UI_COLORS.danger : color),
+                          opacity: val === 0 ? 0.3 : 1
+                        }}>
+                          {val > 0 ? `+${val}` : val}{pIdx < gameState.players.length - 1 || row.data.neutral !== undefined ? ',' : ''}
+                        </span>
+                      );
+                    })}
+                    {row.data.neutral !== undefined && (
+                      <span style={{
+                        fontWeight: 'bold',
+                        color: row.data.neutral > 0 ? UI_COLORS.success : (row.data.neutral < 0 ? UI_COLORS.danger : '#999'),
+                        opacity: row.data.neutral === 0 ? 0.3 : 1
+                      }}>
+                        {row.data.neutral > 0 ? `+${row.data.neutral}` : row.data.neutral}
+                        <span style={{ fontSize: '9px', fontWeight: 'normal', opacity: 0.6, marginLeft: '2px' }}> (N)</span>
+                      </span>
+                    )}
+                  </div>
+                </React.Fragment>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <Board

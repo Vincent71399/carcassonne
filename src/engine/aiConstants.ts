@@ -19,3 +19,7 @@ export const AI_CONSTANTS = {
         MEEPLE_PLACEMENT_BONUS: 3.0
     }
 };
+
+export const AI_CONSTANTS_EXPERIMENT = {
+    MEEPLE_PLACEMENT: [3, 1.5, 1, 0.5, 0.5, 0.5, 0.5],
+}

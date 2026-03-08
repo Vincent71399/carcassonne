@@ -62,6 +62,16 @@
             "road": "Roads",
             "monastery": "Monasteries",
             "field": "Fields"
+        },
+        "aiExperimentMode": "AI Evaluator (Experiment)",
+        "lastMoveBy": "Last Move by {{name}}",
+        "eval": {
+            "complete": "Score Gained",
+            "cityInProgress": "City In-Progress Δ",
+            "roadInProgress": "Road In-Progress Δ",
+            "monasteryInProgress": "Monastery In-Progress Δ",
+            "fieldDelta": "Field Score Δ",
+            "meepleUsage": "Meeple Usage Score"
         }
     },
     "deckViewer": {
