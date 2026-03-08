@@ -965,8 +965,8 @@ function getFeatureWinners(ownership: Record<PlayerId, number>): (PlayerId | 'ne
 function calculateInProgressDelta(
     originalBoard: GameState['board'],
     simBoard: GameState['board'],
-    _x: number,
-    _y: number,
+    x: number,
+    y: number,
     type: 'city' | 'road',
     players: PlayerId[]
 ): Record<PlayerId | 'neutral', number> {
@@ -977,6 +977,33 @@ function calculateInProgressDelta(
     players.forEach(p => {
         results[p] = (scoreAfter[p] || 0) - (scoreBefore[p] || 0);
     });
+
+    // Special Rule: One-Sided City Bonus (G, H, I, J, K, L, M)
+    // Only applies if the tile at (x, y) has a size-1 city area.
+    if (type === 'city') {
+        const tile = simBoard[`${x},${y}`];
+        if (tile && ['G', 'H', 'I', 'J', 'K', 'L', 'M'].includes(tile.typeId)) {
+            const def = TILES_MAP[tile.typeId];
+            if (def?.cityConnections) {
+                def.cityConnections.forEach((_, i) => {
+                    const ev = evaluateFeature(simBoard, x, y, 'city', i);
+                    if (ev.components.length === 1) { // Size 1 city (not connected)
+                        const ownership = getFeatureOwnership(ev, simBoard);
+                        const winners = getFeatureWinners(ownership);
+
+                        winners.forEach(w => {
+                            if (w === 'neutral') {
+                                results['neutral'] += AI_CONSTANTS_EXPERIMENT.EXTRA_POINT_ONE_SIDE_CITY_NEUTRAL;
+                            } else {
+                                results[w] += AI_CONSTANTS_EXPERIMENT.EXTRA_POINT_ONE_SIDE_CITY_PLAYER;
+                            }
+                        });
+                    }
+                });
+            }
+        }
+    }
+
     return results;
 }
 
