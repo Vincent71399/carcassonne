@@ -1,5 +1,5 @@
-import { createInitialState, placeTile, placeMeeple } from './src/engine/state';
-import { BASE_TILES } from './src/engine/tiles';
+import { createInitialState, placeTile, placeMeeple } from '../src/engine/state';
+import { BASE_TILES } from '../src/engine/tiles';
 
 console.log('--- Testing Tile S Meeple Placement ---');
 const state = createInitialState({ 1: 'P1', 2: 'P2' }, { 1: 'human', 2: 'human' });

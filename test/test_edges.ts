@@ -1,5 +1,5 @@
-import { rotateEdges } from './src/engine/board';
-import { BASE_TILES } from './src/engine/tiles';
+import { rotateEdges } from '../src/engine/board';
+import { BASE_TILES } from '../src/engine/tiles';
 
 const tileD = BASE_TILES.find(t => t.typeId === 'D')!;
 const tileV = BASE_TILES.find(t => t.typeId === 'V')!;

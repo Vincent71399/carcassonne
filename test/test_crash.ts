@@ -1,6 +1,6 @@
-import { createInitialState, placeTile } from './src/engine/state';
-import { getOccupiedFeaturesOnTile, evaluateFeature } from './src/engine/features';
-import { BASE_TILES } from './src/engine/tiles';
+import { createInitialState, placeTile } from '../src/engine/state';
+import { getOccupiedFeaturesOnTile, evaluateFeature } from '../src/engine/features';
+import { BASE_TILES } from '../src/engine/tiles';
 
 console.log('--- Simulating Tile B Placement ---');
 

@@ -1,6 +1,6 @@
-import { getValidPlacements } from './src/engine/board';
-import { BASE_TILES } from './src/engine/tiles';
-import type { PlacedTile } from './src/engine/types';
+import { getValidPlacements } from '../src/engine/board';
+import { BASE_TILES } from '../src/engine/tiles';
+import type { PlacedTile } from '../src/engine/types';
 
 // Let's test W
 const boardW: Record<string, PlacedTile> = {};

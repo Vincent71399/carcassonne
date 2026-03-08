@@ -1,6 +1,6 @@
-import { createInitialState } from './src/engine/state';
-import { getOccupiedFeaturesOnTile, evaluateFeature } from './src/engine/features';
-import { BASE_TILES } from './src/engine/tiles';
+import { createInitialState } from '../src/engine/state';
+import { getOccupiedFeaturesOnTile, evaluateFeature } from '../src/engine/features';
+import { BASE_TILES } from '../src/engine/tiles';
 
 console.log('--- Testing Tile U and H Field Connection ---');
 const state = createInitialState({ 1: 'P1', 2: 'P2' }, { 1: 'human', 2: 'human' });

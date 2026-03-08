@@ -1,6 +1,6 @@
-import { createInitialState, placeTile } from './src/engine/state';
-import { evaluateFeature } from './src/engine/features';
-import { BASE_TILES } from './src/engine/tiles';
+import { createInitialState, placeTile } from '../src/engine/state';
+import { evaluateFeature } from '../src/engine/features';
+import { BASE_TILES } from '../src/engine/tiles';
 
 console.log('--- Testing Road B-W Completion ---');
 const state = createInitialState({ 1: 'P1', 2: 'P2' }, { 1: 'human', 2: 'human' });

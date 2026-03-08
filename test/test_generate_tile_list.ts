@@ -1,6 +1,6 @@
 import * as fs from 'fs';
-import { BASE_TILES } from './src/engine/tiles';
-import type { TileDefinition } from './src/engine/types';
+import { BASE_TILES } from '../src/engine/tiles';
+import type { TileDefinition } from '../src/engine/types';
 
 /**
  * This script generates a markdown table (tile_list.md) summarizing all tiles in the base set.
