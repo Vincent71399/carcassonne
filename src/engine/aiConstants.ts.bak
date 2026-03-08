@@ -1,5 +1,5 @@
 export const AI_CONSTANTS = {
-    EASY: {
+    NOOB: {
         SELF_WEIGHT: 0.1,
         OPPONENT_WEIGHT: 0.0,
         MEEPLE_PLACEMENT_BONUS: 3.0

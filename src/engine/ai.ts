@@ -34,11 +34,11 @@ function getAvailableMeeples(state: GameState, playerId: PlayerId): number {
 function calculateFinalScore(
     impact: ActionImpact
 ): number {
-    let finalScore = impact.selfGain * AI_CONSTANTS.EASY.SELF_WEIGHT;
+    let finalScore = impact.selfGain * AI_CONSTANTS.NOOB.SELF_WEIGHT;
 
     for (const delta of Object.values(impact.opponentDelta)) {
         // The Computer AI doesn't heavily weigh opponents, but it respects the constant
-        finalScore -= delta * AI_CONSTANTS.EASY.OPPONENT_WEIGHT;
+        finalScore -= delta * AI_CONSTANTS.NOOB.OPPONENT_WEIGHT;
     }
 
     return finalScore;
@@ -96,7 +96,7 @@ export function getScoredMoves(
                         let scoreWithMeeple = calculateFinalScore(impactWithMeeple);
 
                         // Give it the meeple placement bonus so it actually places them
-                        scoreWithMeeple += AI_CONSTANTS.EASY.MEEPLE_PLACEMENT_BONUS;
+                        scoreWithMeeple += AI_CONSTANTS.NOOB.MEEPLE_PLACEMENT_BONUS;
 
                         simTile.meeples.pop();
 

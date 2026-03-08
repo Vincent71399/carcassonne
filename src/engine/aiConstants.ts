@@ -13,7 +13,7 @@ export const AI_CONSTANTS = {
         CONTEST_HELP_NO_SHARE_GENERIC_COMPLETION_PENALTY: 15,
         FIELD_MULTIPLIER: 3,
     },
-    EASY: {
+    NOOB: {
         SELF_WEIGHT: 0.1,
         OPPONENT_WEIGHT: 0.0,
         MEEPLE_PLACEMENT_BONUS: 3.0
