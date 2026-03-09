@@ -3,10 +3,9 @@
 [![Deploy static content to Pages](https://github.com/Vincent71399/carcassonne/actions/workflows/deploy.yml/badge.svg)](https://github.com/Vincent71399/carcassonne/actions/workflows/deploy.yml)
 
 A web-based implementation of the Carcassonne board game, featuring a 3-tile hand mechanic and AI opponents.
-<img width="1085" height="852" alt="image" src="https://github.com/user-attachments/assets/132c5d62-77e2-4daf-85d9-be1a358212a8" />
-
 ## Live Demo
 Check out the live game here: [https://vincent71399.github.io/carcassonne/](https://vincent71399.github.io/carcassonne/)
+<img width="1085" height="852" alt="image" src="https://github.com/user-attachments/assets/132c5d62-77e2-4daf-85d9-be1a358212a8" />
 
 ## Features
 - Classic Carcassonne gameplay.
