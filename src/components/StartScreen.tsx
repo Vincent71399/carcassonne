@@ -9,14 +9,26 @@ interface StartScreenProps {
     onStartGame: (playerNames: Record<number, string>, playerTypes: Record<number, PlayerType>) => void;
 }
 
-const AI_NAMES = [
-    'Miso', 'Pippin', 'Nibble', 'Dot', 'Pebble', 'Orbit', 'Flux', 'Pivot', 'Moor', 'Abbey', 'Sentinel', 'Warden', 'Cipher', 'Vector', 'Nexus', 'Castell', 'Rampart', 'Bastion', 'Keep', 'Relic', 'Razor', 'Blade', 'Fang', 'Viper', 'Talon', 'Spike'
+const NOOB_AI_NAMES = [
+    'Miso', 'Pippin', 'Nibble', 'Dot', 'Pebble', 'Orbit', 'Flux', 'Pivot', 'Moor', 'Abbey'
 ];
 
-const getRandomAiName = (existingNames: string[] = [], i18n_computer: string = '(AI)') => {
-    const availableNames = AI_NAMES.filter(name => !existingNames.includes(`${name} ${i18n_computer}`));
-    const pool = availableNames.length > 0 ? availableNames : AI_NAMES;
-    const name = pool[Math.floor(Math.random() * pool.length)];
+const EASY_AI_NAMES = [
+    'Sentinel', 'Warden', 'Cipher', 'Vector', 'Nexus', 'Castell', 'Rampart', 'Bastion', 'Keep', 'Relic'
+];
+
+const MEDIUM_AI_NAMES = [
+    'Razor', 'Blade', 'Fang', 'Viper', 'Talon', 'Spike', 'Scythe', 'Hex', 'Claw', 'Shard'
+];
+
+const getRandomAiName = (type: PlayerType, existingNames: string[] = [], i18n_computer: string = '(AI)') => {
+    let pool = NOOB_AI_NAMES;
+    if (type === 'ai-easy') pool = EASY_AI_NAMES;
+    if (type === 'ai-medium') pool = MEDIUM_AI_NAMES;
+
+    const availableNames = pool.filter(name => !existingNames.includes(`${name} ${i18n_computer}`));
+    const finalPool = availableNames.length > 0 ? availableNames : pool;
+    const name = finalPool[Math.floor(Math.random() * finalPool.length)];
     return `${name} ${i18n_computer}`;
 };
 
@@ -73,9 +85,9 @@ export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame 
         } else {
             initial = {
                 1: i18n.t('startScreen.playerPlaceholder', { id: 1 }),
-                2: getRandomAiName([], i18n.t('startScreen.aiMarker')),
-                3: getRandomAiName([], i18n.t('startScreen.aiMarker')),
-                4: getRandomAiName([], i18n.t('startScreen.aiMarker'))
+                2: getRandomAiName('ai-noob', [], i18n.t('startScreen.aiMarker')),
+                3: getRandomAiName('ai-noob', [], i18n.t('startScreen.aiMarker')),
+                4: getRandomAiName('ai-noob', [], i18n.t('startScreen.aiMarker'))
             };
         }
 
@@ -110,8 +122,15 @@ export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame 
         const currentName = names[pId] || '';
 
         if (newType !== 'human') {
-            if (!currentName || currentName.startsWith('Player ') || currentName.startsWith('玩家 ') || currentName === 'Computer' || !currentName.includes('(')) {
-                setNames(prev => ({ ...prev, [pId]: getRandomAiName(Object.values(prev), t('startScreen.aiMarker')) }));
+            const isDefaultAiName = (name: string) => {
+                const marker = t('startScreen.aiMarker');
+                if (!name.endsWith(marker)) return false;
+                const baseName = name.replace(` ${marker}`, '');
+                return NOOB_AI_NAMES.includes(baseName) || EASY_AI_NAMES.includes(baseName) || MEDIUM_AI_NAMES.includes(baseName);
+            };
+
+            if (!currentName || currentName.startsWith('Player ') || currentName.startsWith('玩家 ') || currentName === 'Computer' || !currentName.includes('(') || isDefaultAiName(currentName)) {
+                setNames(prev => ({ ...prev, [pId]: getRandomAiName(newType, Object.values(prev), t('startScreen.aiMarker')) }));
             }
         } else {
             if (currentName.includes('(')) {
@@ -288,13 +307,13 @@ export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame 
                                             if (num >= 3) {
                                                 setTypes(prev => ({
                                                     ...prev,
-                                                    3: prev[3] || 'ai-easy',
-                                                    4: prev[4] || 'ai-easy'
+                                                    3: prev[3] || 'ai-noob',
+                                                    4: prev[4] || 'ai-noob'
                                                 }));
                                                 setNames(prev => {
                                                     const newNames = { ...prev };
-                                                    if (!newNames[3]) newNames[3] = getRandomAiName(Object.values(newNames), t('startScreen.aiMarker'));
-                                                    if (!newNames[4]) newNames[4] = getRandomAiName(Object.values(newNames), t('startScreen.aiMarker'));
+                                                    if (!newNames[3]) newNames[3] = getRandomAiName(types[3] || 'ai-noob', Object.values(newNames), t('startScreen.aiMarker'));
+                                                    if (!newNames[4]) newNames[4] = getRandomAiName(types[4] || 'ai-noob', Object.values(newNames), t('startScreen.aiMarker'));
                                                     return newNames;
                                                 });
                                             }

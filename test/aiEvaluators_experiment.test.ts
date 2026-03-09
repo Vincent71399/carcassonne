@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import {
     evaluateGainScoreRoad_InProgress,
     evaluateGainScoreMonastery_InProgress,
-    evaluateRoadAttack,
     evaluateGainScoreComplete,
     evaluateGainScoreCity_InProgress,
     evaluateGainScoreField,

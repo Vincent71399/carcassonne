@@ -56,7 +56,7 @@ async function runMatch(types: Record<number, PlayerType>, names: Record<number,
     return state;
 }
 
-async function runTournament(p1Type: PlayerType = 'ai-medium', p2Type: PlayerType = 'ai-easy') {
+async function runTournament(p1Type: PlayerType, p2Type: PlayerType) {
     console.log("Starting 2-Player AI Tournament (10 games each match-up)...");
 
     const matchups = [
@@ -105,4 +105,4 @@ async function runTournament(p1Type: PlayerType = 'ai-medium', p2Type: PlayerTyp
     }
 }
 
-runTournament().catch(console.error);
+runTournament('ai-easy', 'ai-medium').catch(console.error);
