@@ -1,7 +1,7 @@
 import type { GameState, PlayerId, PlacedTile } from './types';
 import { evaluateFeature, evaluateMonastery, type FeatureEvaluation, type FeatureComponent } from './features';
 import { TILES_MAP } from './tiles';
-import { AI_CONSTANTS } from './aiConstants';
+import {AI_CONSTANTS, AI_CONSTANTS_EXPERIMENT} from './aiConstants';
 
 export interface ActionImpact {
     selfGain: number;       // Points we definitively score (or secure)
@@ -139,7 +139,7 @@ export function evaluateGainField(board: GameState['board'], x: number, y: numbe
                 }
             }
         });
-        points += adjacentCityKeys.size * AI_CONSTANTS.FEATURES.FIELD_MULTIPLIER;
+        points += adjacentCityKeys.size * AI_CONSTANTS_EXPERIMENT.FIELD_MULTIPLIER;
     }
     return { selfGain: points, opponentDelta: {} };
 }

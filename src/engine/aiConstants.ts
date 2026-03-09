@@ -3,8 +3,6 @@ export const AI_CONSTANTS = {
     FEATURES: {
         COMPLETION_BONUS_CITY: 10,
         COMPLETION_BONUS_ROAD: 5,
-
-        FIELD_MULTIPLIER: 3,
     },
     NOOB: {
         SELF_WEIGHT: 0.1,
@@ -17,6 +15,7 @@ export const AI_CONSTANTS_EXPERIMENT = {
     MEEPLE_PLACEMENT: [3, 1.5, 1, 0.5, 0.5, 0.5, 0.5],
     EXTRA_POINT_ONE_SIDE_CITY_PLAYER: 0.5,
     EXTRA_POINT_ONE_SIDE_CITY_NEUTRAL: 1,
+    FIELD_MULTIPLIER: 3,
 
     EASY: {
         SCORE_GAIN: 1,
