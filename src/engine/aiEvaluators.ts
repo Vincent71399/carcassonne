@@ -22,10 +22,6 @@ function addImpacts(a: ActionImpact, b: ActionImpact): ActionImpact {
     };
 }
 
-
-
-
-
 function getFeatureDelta(_board: GameState['board'], fId: string, simTile: PlacedTile): number {
     if (fId.startsWith('city')) {
         let pts = 2;
