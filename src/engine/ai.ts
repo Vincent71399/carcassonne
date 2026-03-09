@@ -58,6 +58,10 @@ export interface AIWeights {
     NEUTRAL_CITY_IN_PROGRESS: number;
     NEUTRAL_ROAD_IN_PROGRESS: number;
     NEUTRAL_FIELD: number;
+
+    FIELD_SCORE_INITIAL_MULTIPLIER: number;
+    CITY_OPEN_EDGE: number;
+    OPPONENT_CITY_OPEN_EDGE: number;
 }
 
 function calculateWeightedScore(
@@ -99,6 +103,16 @@ function calculateWeightedScore(
     const roadAttack = experimental.evaluateRoadAttack(simBoard, aiPlayerId, players, { x, y }, state.hands[aiPlayerId], state.deck);
     const fieldAttack = experimental.evaluateFieldAttack(simBoard, aiPlayerId, players, { x, y }, state.hands[aiPlayerId], state.deck);
 
+    const cityOpenEdgeDelta = experimental.evaluateCityOpenEdgeDelta(state.board, simBoard, players);
+
+    // game_end_factor scales from FIELD_SCORE_INITIAL_MULTIPLIER (at game start)
+    // to 1.0 (when deck is empty).
+    const initialMultiplier = weights.FIELD_SCORE_INITIAL_MULTIPLIER || 1;
+    const deckSize = state.deck.length;
+    const totalTiles = 72; // Standard Carcassonne has 72 tiles (including start tile)
+    const progress = 1 - (deckSize / totalTiles);
+    const game_end_factor = initialMultiplier + (1 - initialMultiplier) * progress;
+
     let totalScore = 0;
 
     // 1. Self weights
@@ -106,11 +120,12 @@ function calculateWeightedScore(
     totalScore += cityInProgress[aiPlayerId] * weights.CITY_IN_PROGRESS;
     totalScore += roadInProgress[aiPlayerId] * weights.ROAD_IN_PROGRESS;
     totalScore += monasteryInProgress[aiPlayerId] * weights.MONASTERY_IN_PROGRESS;
-    totalScore += field[aiPlayerId] * weights.FIELD;
+    totalScore += field[aiPlayerId] * weights.FIELD * game_end_factor;
     totalScore += meepleUsageScore * weights.MEEPLE_USAGE;
     totalScore += cityAttack[aiPlayerId] * weights.CITY_ATTACK;
     totalScore += roadAttack[aiPlayerId] * weights.ROAD_ATTACK;
     totalScore += fieldAttack[aiPlayerId] * weights.FIELD_ATTACK;
+    totalScore += (cityOpenEdgeDelta[aiPlayerId] || 0) * weights.CITY_OPEN_EDGE;
 
     // 2. Neutral weights
     totalScore += cityInProgress['neutral'] * (weights.NEUTRAL_CITY_IN_PROGRESS || 0);
@@ -132,10 +147,11 @@ function calculateWeightedScore(
             totalScore += (cityInProgress[oppId] || 0) * weights.OPPONENT_CITY_IN_PROGRESS * threaten_factor;
             totalScore += (roadInProgress[oppId] || 0) * weights.OPPONENT_ROAD_IN_PROGRESS * threaten_factor;
             totalScore += (monasteryInProgress[oppId] || 0) * weights.OPPONENT_MONASTERY_IN_PROGRESS * threaten_factor;
-            totalScore += (field[oppId] || 0) * weights.OPPONENT_FIELD * threaten_factor;
+            totalScore += (field[oppId] || 0) * weights.OPPONENT_FIELD * threaten_factor * game_end_factor;
             totalScore += (cityAttack[oppId] || 0) * weights.OPPONENT_CITY_ATTACK * threaten_factor;
             totalScore += (roadAttack[oppId] || 0) * weights.OPPONENT_ROAD_ATTACK * threaten_factor;
             totalScore += (fieldAttack[oppId] || 0) * weights.OPPONENT_FIELD_ATTACK * threaten_factor;
+            totalScore += (cityOpenEdgeDelta[oppId] || 0) * weights.OPPONENT_CITY_OPEN_EDGE * threaten_factor;
             // Note: OPPONENT_MEEPLE_USAGE is usually not applicable here as opponents don't place/return meeples on AI turn (mostly)
         }
     }

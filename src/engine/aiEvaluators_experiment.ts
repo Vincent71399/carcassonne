@@ -1127,10 +1127,12 @@ function calculateFieldScore(
 
 export function evaluateCityOpenEdgeDelta(
     boardBefore: GameState['board'],
-    boardAfter: GameState['board']
-): number {
+    boardAfter: GameState['board'],
+    players: PlayerId[]
+): Record<PlayerId | 'neutral', number> {
     const scoredFeaturesAfter = new Set<string>();
-    let totalDelta = 0;
+    const results: Record<PlayerId | 'neutral', number> = { neutral: 0 };
+    players.forEach(p => { results[p] = 0; });
 
     for (const tileKey of Object.keys(boardAfter)) {
         const tile = boardAfter[tileKey];
@@ -1164,10 +1166,17 @@ export function evaluateCityOpenEdgeDelta(
             });
             vBefore = totalBeforeUniqueVacancies.size;
 
-            totalDelta += (vBefore - vAfter);
+            const delta = vBefore - vAfter;
+            if (delta !== 0) {
+                const ownership = getFeatureOwnership(evAfter, boardAfter);
+                const winners = getFeatureWinners(ownership);
+                winners.forEach(w => {
+                    results[w] = (results[w] || 0) + delta;
+                });
+            }
         }
     }
-    return totalDelta;
+    return results;
 }
 
 

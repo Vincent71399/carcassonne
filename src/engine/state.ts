@@ -262,7 +262,7 @@ export function endTurn(state: GameState) {
             cityAttack: evaluateCityAttack(state.board, playerId, state.players, { x, y }, state.hands[playerId], state.deck),
             roadAttack: evaluateRoadAttack(state.board, playerId, state.players, { x, y }, state.hands[playerId], state.deck),
             fieldAttack: evaluateFieldAttack(state.board, playerId, state.players, { x, y }, state.hands[playerId], state.deck),
-            cityOpenEdgeDelta: { [playerId]: evaluateCityOpenEdgeDelta(boardBeforeMove, state.board), neutral: 0 }
+            cityOpenEdgeDelta: evaluateCityOpenEdgeDelta(boardBeforeMove, state.board, state.players)
         };
     }
 
