@@ -1124,3 +1124,64 @@ function calculateFieldScore(
     }
     return results;
 }
+
+export function evaluateCityOpenEdgeDelta(
+    boardBefore: GameState['board'],
+    boardAfter: GameState['board']
+): number {
+    const scoredFeaturesAfter = new Set<string>();
+    let totalDelta = 0;
+
+    for (const tileKey of Object.keys(boardAfter)) {
+        const tile = boardAfter[tileKey];
+        const def = TILES_MAP[tile.typeId];
+        if (!def || !def.cityConnections) continue;
+
+        for (let i = 0; i < def.cityConnections.length; i++) {
+            const evAfter = evaluateFeature(boardAfter, tile.x, tile.y, 'city', i);
+            const featureKey = evAfter.components.map(c => `${c.tileX},${c.tileY},${c.featureId}`).sort().join('|');
+            if (scoredFeaturesAfter.has(featureKey)) continue;
+            scoredFeaturesAfter.add(featureKey);
+
+            if (evAfter.isComplete || evAfter.components.length < 2) continue;
+
+            const vAfter = getFeatureVacancies(evAfter, boardAfter).size;
+
+            // Find this feature's vacancies in boardBefore
+            let vBefore = 0;
+            const seenInBefore = new Set<string>();
+            const totalBeforeUniqueVacancies = new Set<string>();
+
+            evAfter.components.forEach(c => {
+                if (boardBefore[`${c.tileX},${c.tileY}`]) {
+                    const evBefore = evaluateFeature(boardBefore, c.tileX, c.tileY, 'city', parseInt(c.featureId.split('-')[1], 10));
+                    const bKey = evBefore.components.map(bc => `${bc.tileX},${bc.tileY},${bc.featureId}`).sort().join('|');
+                    if (!seenInBefore.has(bKey)) {
+                        seenInBefore.add(bKey);
+                        getFeatureVacancies(evBefore, boardBefore).forEach(v => totalBeforeUniqueVacancies.add(v));
+                    }
+                }
+            });
+            vBefore = totalBeforeUniqueVacancies.size;
+
+            totalDelta += (vBefore - vAfter);
+        }
+    }
+    return totalDelta;
+}
+
+
+function getFeatureVacancies(ev: FeatureEvaluation, board: GameState['board']): Set<string> {
+    const vacancies = new Set<string>();
+    const openEdges = getOpenCityEdges(ev, board);
+    openEdges.forEach(oe => {
+        const nx = oe.x + (oe.dir === 'right' ? 1 : oe.dir === 'left' ? -1 : 0);
+        const ny = oe.y + (oe.dir === 'bottom' ? 1 : oe.dir === 'top' ? -1 : 0);
+        vacancies.add(`${nx},${ny}`);
+    });
+    return vacancies;
+}
+
+
+
+

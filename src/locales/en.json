@@ -77,7 +77,8 @@
             "meepleUsage": "Meeple Usage Score",
             "cityAttack": "City Attack Score",
             "roadAttack": "Road Attack Score",
-            "fieldAttack": "Field Attack Score"
+            "fieldAttack": "Field Attack Score",
+            "cityOpenEdgeDelta": "City Open Edge Δ"
         }
     },
     "deckViewer": {

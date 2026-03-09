@@ -103,5 +103,6 @@ export interface GameState {
         cityAttack: Record<PlayerId | 'neutral', number>;
         roadAttack: Record<PlayerId | 'neutral', number>;
         fieldAttack: Record<PlayerId | 'neutral', number>;
+        cityOpenEdgeDelta: Record<PlayerId | 'neutral', number>;
     };
 }

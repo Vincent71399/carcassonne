@@ -77,7 +77,8 @@
             "meepleUsage": "随从使用评分",
             "cityAttack": "进攻对方城市评分",
             "roadAttack": "进攻对方道路评分",
-            "fieldAttack": "进攻对方草原评分"
+            "fieldAttack": "进攻对方草原评分",
+            "cityOpenEdgeDelta": "城市开口边缘 Δ"
         }
     },
     "deckViewer": {

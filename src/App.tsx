@@ -781,7 +781,8 @@ function App() {
                 { label: t('game.eval.meepleUsage'), data: gameState.lastMoveEvaluation.meepleUsage },
                 { label: t('game.eval.cityAttack'), data: gameState.lastMoveEvaluation.cityAttack },
                 { label: t('game.eval.roadAttack'), data: gameState.lastMoveEvaluation.roadAttack },
-                { label: t('game.eval.fieldAttack'), data: gameState.lastMoveEvaluation.fieldAttack }
+                { label: t('game.eval.fieldAttack'), data: gameState.lastMoveEvaluation.fieldAttack },
+                { label: t('game.eval.cityOpenEdgeDelta'), data: gameState.lastMoveEvaluation.cityOpenEdgeDelta }
               ].map((row, idx) => (
                 <React.Fragment key={idx}>
                   <span style={{ color: '#666' }}>{row.label}:</span>
@@ -795,7 +796,7 @@ function App() {
                           color: val > 0 ? UI_COLORS.success : (val < 0 ? UI_COLORS.danger : color),
                           opacity: val === 0 ? 0.3 : 1
                         }}>
-                          {val > 0 ? `+${val}` : val}{pIdx < gameState.players.length - 1 || row.data.neutral !== undefined ? ',' : ''}
+                          {val > 0 && row.label !== t('game.eval.cityCompletionChance') ? `+${val}` : val}{pIdx < gameState.players.length - 1 || row.data.neutral !== undefined ? ',' : ''}
                         </span>
                       );
                     })}
@@ -805,7 +806,7 @@ function App() {
                         color: row.data.neutral > 0 ? UI_COLORS.success : (row.data.neutral < 0 ? UI_COLORS.danger : '#999'),
                         opacity: row.data.neutral === 0 ? 0.3 : 1
                       }}>
-                        {row.data.neutral > 0 ? `+${row.data.neutral}` : row.data.neutral}
+                        {row.data.neutral > 0 && row.label !== t('game.eval.cityCompletionChance') ? `+${row.data.neutral}` : row.data.neutral}
                         <span style={{ fontSize: '9px', fontWeight: 'normal', opacity: 0.6, marginLeft: '2px' }}> (N)</span>
                       </span>
                     )}
