@@ -68,30 +68,4 @@ export const AI_CONSTANTS_EXPERIMENT = {
         NEUTRAL_ROAD_IN_PROGRESS: -0.1,
         NEUTRAL_FIELD: 0,
     }
-
-    // MEDIUM: {
-    //     SCORE_GAIN: 1,
-    //     CITY_IN_PROGRESS: 0.8,
-    //     ROAD_IN_PROGRESS: 0.4,
-    //     MONASTERY_IN_PROGRESS: 0.5,
-    //     FIELD: 0.25,
-    //     MEEPLE_USAGE: 1,
-    //     CITY_ATTACK: 0.4,
-    //     ROAD_ATTACK: 0.15,
-    //     FIELD_ATTACK: 0.1,
-    //
-    //     OPPONENT_SCORE_GAIN: -1,
-    //     OPPONENT_CITY_IN_PROGRESS: -0.8,
-    //     OPPONENT_ROAD_IN_PROGRESS: -0.4,
-    //     OPPONENT_MONASTERY_IN_PROGRESS: -0.5,
-    //     OPPONENT_FIELD: -0.25,
-    //     OPPONENT_MEEPLE_USAGE: -1,
-    //     OPPONENT_CITY_ATTACK: -0.4,
-    //     OPPONENT_ROAD_ATTACK: -0.15,
-    //     OPPONENT_FIELD_ATTACK: -0.1,
-    //
-    //     NEUTRAL_CITY_IN_PROGRESS: -0.5,
-    //     NEUTRAL_ROAD_IN_PROGRESS: -0.1,
-    //     NEUTRAL_FIELD: 0,
-    // }
 }
