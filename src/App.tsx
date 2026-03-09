@@ -1236,6 +1236,8 @@ function App() {
                         setRotation(0);
                         setShowDeckViewer(false);
                         setShowBoardPostGame(false);
+                        setPan({ x: 0, y: 0 });
+                        setZoom(1);
                       }}
                       style={{
                         padding: '14px 48px', fontSize: 18, fontWeight: 'bold',
@@ -1256,6 +1258,8 @@ function App() {
                         setRotation(0);
                         setShowDeckViewer(false);
                         setShowBoardPostGame(false);
+                        setPan({ x: 0, y: 0 });
+                        setZoom(1);
                       }}
                       style={{
                         padding: '14px 24px', fontSize: 16, fontWeight: 'bold',
@@ -1499,6 +1503,8 @@ function App() {
                     setRotation(0);
                     setShowDeckViewer(false);
                     setShowBoardPostGame(false);
+                    setPan({ x: 0, y: 0 });
+                    setZoom(1);
                   }}
                   style={{
                     flex: 1, padding: '12px', borderRadius: '10px',

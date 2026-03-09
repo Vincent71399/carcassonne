@@ -4,6 +4,7 @@ import { getValidPlacements } from './board';
 import { AI_CONSTANTS, AI_CONSTANTS_EXPERIMENT } from './aiConstants';
 import { evaluateAllActions, type ActionImpact } from './aiEvaluators';
 import * as experimental from './aiEvaluators_experiment';
+import { evaluateReturnedMeeples } from './aiEvaluators_experiment';
 import { getOccupiedFeaturesOnTile } from './features';
 
 export interface AIMove {
@@ -90,13 +91,12 @@ function calculateWeightedScore(
     // Returned meeples can be checked by comparing board states or using evaluateGainScoreComplete info.
     // Actually, experimental.evaluateMeepleUsage is quite sophisticated about "weights".
     // Let's use it for the active player.
-    const countBefore = state.remainingMeeples[aiPlayerId]?.standard || 0;
-    let countAfter = countBefore;
-    if (meepleFeatureId) countAfter -= 1;
+    const returnedMeeples = evaluateReturnedMeeples(simBoard, x, y, simTile, aiPlayerId);
 
-    // To be more accurate, we should count returned meeples.
-    // evaluateGainScoreComplete doesn't return them directly, but we can do a quick check.
-    // For now, let's keep it simple or implement a basic return check.
+    const countBefore = state.remainingMeeples[aiPlayerId]?.standard || 0;
+    const countAfter = countBefore - (meepleFeatureId ? 1 : 0) + returnedMeeples;
+
+    // experimental.evaluateMeepleUsage is quite sophisticated about "weights".
     const meepleUsageScore = experimental.evaluateMeepleUsage(countBefore, countAfter);
 
     const cityAttack = experimental.evaluateCityAttack(simBoard, aiPlayerId, players, { x, y }, state.hands[aiPlayerId], state.deck);
@@ -124,7 +124,7 @@ function calculateWeightedScore(
     totalScore += meepleUsageScore * weights.MEEPLE_USAGE;
     totalScore += cityAttack[aiPlayerId] * weights.CITY_ATTACK;
     totalScore += roadAttack[aiPlayerId] * weights.ROAD_ATTACK;
-    totalScore += fieldAttack[aiPlayerId] * weights.FIELD_ATTACK;
+    totalScore += fieldAttack[aiPlayerId] * weights.FIELD_ATTACK * game_end_factor;
     totalScore += (cityOpenEdgeDelta[aiPlayerId] || 0) * weights.CITY_OPEN_EDGE;
 
     // 2. Neutral weights
@@ -150,7 +150,7 @@ function calculateWeightedScore(
             totalScore += (field[oppId] || 0) * weights.OPPONENT_FIELD * threaten_factor * game_end_factor;
             totalScore += (cityAttack[oppId] || 0) * weights.OPPONENT_CITY_ATTACK * threaten_factor;
             totalScore += (roadAttack[oppId] || 0) * weights.OPPONENT_ROAD_ATTACK * threaten_factor;
-            totalScore += (fieldAttack[oppId] || 0) * weights.OPPONENT_FIELD_ATTACK * threaten_factor;
+            totalScore += (fieldAttack[oppId] || 0) * weights.OPPONENT_FIELD_ATTACK * threaten_factor * game_end_factor;
             totalScore += (cityOpenEdgeDelta[oppId] || 0) * weights.OPPONENT_CITY_OPEN_EDGE * threaten_factor;
             // Note: OPPONENT_MEEPLE_USAGE is usually not applicable here as opponents don't place/return meeples on AI turn (mostly)
         }

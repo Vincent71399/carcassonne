@@ -938,7 +938,7 @@ export function evaluateGainScoreField(
 
 // --- Internal Helpers ---
 
-function getFeatureOwnership(evaluation: FeatureEvaluation, board: GameState['board']): Record<PlayerId, number> {
+export function getFeatureOwnership(evaluation: FeatureEvaluation, board: GameState['board']): Record<PlayerId, number> {
     const meepleCounts: Record<PlayerId, number> = {};
     evaluation.components.forEach(comp => {
         const t = board[`${comp.tileX},${comp.tileY}`];
@@ -953,7 +953,7 @@ function getFeatureOwnership(evaluation: FeatureEvaluation, board: GameState['bo
     return meepleCounts;
 }
 
-function getFeatureWinners(ownership: Record<PlayerId, number>): (PlayerId | 'neutral')[] {
+export function getFeatureWinners(ownership: Record<PlayerId, number>): (PlayerId | 'neutral')[] {
     const counts = Object.values(ownership);
     if (counts.length === 0) return ['neutral'];
     const max = Math.max(...counts);
@@ -1124,6 +1124,74 @@ function calculateFieldScore(
     }
     return results;
 }
+
+/**
+ * Calculates how many meeples of a specific player will be returned 
+ * by the current tile placement (including the meeple just placed).
+ */
+export function evaluateReturnedMeeples(
+    board: GameState['board'],
+    x: number,
+    y: number,
+    simTile: PlacedTile,
+    playerId: PlayerId
+): number {
+    const tileDef = TILES_MAP[simTile.typeId];
+    if (!tileDef) return 0;
+
+    let returnedCount = 0;
+    const scoredFeatures = new Set<string>();
+
+    const processFeature = (evaluation: FeatureEvaluation) => {
+        if (!evaluation.isComplete) return;
+
+        const componentIds = evaluation.components.map(c => `${c.tileX},${c.tileY},${c.featureId}`).sort();
+        const featureKey = componentIds.join('|');
+        if (scoredFeatures.has(featureKey)) return;
+        scoredFeatures.add(featureKey);
+
+        // Count the physical meeples on this feature for this player.
+        evaluation.components.forEach(comp => {
+            const t = board[`${comp.tileX},${comp.tileY}`];
+            if (t) {
+                t.meeples.forEach(m => {
+                    if (m.featureId === comp.featureId && m.meeple.playerId === playerId) {
+                        returnedCount++;
+                    }
+                });
+            }
+        });
+    };
+
+    if (tileDef.cityConnections) {
+        tileDef.cityConnections.forEach((_, i) => processFeature(evaluateFeature(board, x, y, 'city', i)));
+    }
+    if (tileDef.roadConnections) {
+        tileDef.roadConnections.forEach((_, i) => processFeature(evaluateFeature(board, x, y, 'road', i)));
+    }
+    if (tileDef.monastery) {
+        processFeature(evaluateMonastery(board, x, y));
+    }
+
+    // Check adjacent monasteries
+    for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+            if (dx === 0 && dy === 0) continue;
+            const nx = x + dx;
+            const ny = y + dy;
+            const nTile = board[`${nx},${ny}`];
+            if (nTile) {
+                const nDef = TILES_MAP[nTile.typeId];
+                if (nDef?.monastery) {
+                    processFeature(evaluateMonastery(board, nx, ny));
+                }
+            }
+        }
+    }
+
+    return returnedCount;
+}
+
 
 export function evaluateCityOpenEdgeDelta(
     boardBefore: GameState['board'],

@@ -7,10 +7,11 @@ import {
     evaluateGainScoreField,
     evaluateCityAttack,
     evaluateRoadAttack as evaluateRoadAttackFn,
-    evaluateFieldAttack
+    evaluateFieldAttack,
+    evaluateReturnedMeeples
 } from '../src/engine/aiEvaluators_experiment';
 import { TILES_MAP } from '../src/engine/tiles';
-import { PlayerId, GameState } from '../src/engine/types';
+import { PlayerId, GameState, PlacedTile } from '../src/engine/types';
 
 describe('AI Evaluators Experiment - Final Suite', () => {
     const p1 = 1 as PlayerId;
@@ -154,6 +155,52 @@ describe('AI Evaluators Experiment - Final Suite', () => {
 
             const delta = evaluateGainScoreCity_InProgress(boardBefore, boardAfter, 1, 0, players);
             expect(delta['neutral']).toBe(1.0);
+        });
+    });
+
+    describe('evaluateReturnedMeeples', () => {
+        it('should return 1 when placing a tile completes a road with an existing meeple', () => {
+            const board = createManualBoard();
+            // Tile F: Monastery with road at Bottom
+            addTile(board, 0, 0, 'F', 0, 't1');
+            addMeeple(board, 0, 0, p1, 'road-0');
+
+            const simBoard = deepClone(board);
+            // Place another tile F to complete the road (rotation 2 means road at Top)
+            const simTile: PlacedTile = { id: 't2', typeId: 'F', x: 0, y: 1, rotation: 2, meeples: [] };
+            simBoard['0,1'] = simTile;
+
+            const returned = evaluateReturnedMeeples(simBoard, 0, 1, simTile, p1);
+            expect(returned).toBe(1);
+        });
+
+        it('should return 1 when placing a meeple on a completing road', () => {
+            const board = createManualBoard();
+            // Tile F: Monastery with road at Bottom
+            addTile(board, 0, 0, 'F', 0, 't1');
+
+            const simBoard = { ...board };
+            // Place another tile F to complete the road (rotation 2 means road at Top)
+            const simTile: PlacedTile = { id: 't2', typeId: 'F', x: 0, y: 1, rotation: 2, meeples: [] };
+            simBoard['0,1'] = simTile;
+            // Place meeple on the new tile's road
+            simTile.meeples.push({ meeple: { id: 'm1', playerId: p1, type: 'standard' }, featureId: 'road-0' });
+
+            const returned = evaluateReturnedMeeples(simBoard, 0, 1, simTile, p1);
+            expect(returned).toBe(1);
+        });
+
+        it('should return 0 if the feature is not completed', () => {
+            const board = createManualBoard();
+            addTile(board, 0, 0, 'B', 0, 't1');
+            addMeeple(board, 0, 0, p1, 'road-0');
+
+            const simBoard = deepClone(board);
+            const simTile = { id: 't2', typeId: 'B', x: 0, y: 1, rotation: 1, meeples: [] }; // Road Left-Right (not connected)
+            simBoard['0,1'] = simTile;
+
+            const returned = evaluateReturnedMeeples(simBoard, 0, 1, simTile, p1);
+            expect(returned).toBe(0);
         });
     });
 });

@@ -105,4 +105,4 @@ async function runTournament(p1Type: PlayerType, p2Type: PlayerType) {
     }
 }
 
-runTournament('ai-easy', 'ai-medium').catch(console.error);
+runTournament('ai-medium', 'ai-easy').catch(console.error);
