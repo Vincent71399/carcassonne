@@ -394,8 +394,8 @@ const TILE_FIELD_REGIONS: Record<string, { id: string, x: number, y: number }[]>
         { id: 'field-2', x: 15, y: 85 },
         { id: 'field-3', x: 15, y: 15 },
     ],
-    'E': [],                               // Pure Monastery — monk spot from monastery-0 only
-    'F': [],                               // Monastery+Road — monk spot from monastery-0, road from road-0
+    'E': [{ id: 'field-0', x: 25, y: 75 }],                               // Pure Monastery — monk spot from monastery-0, field-0 at bottom-left
+    'F': [{ id: 'field-0', x: 25, y: 75 }],                               // Monastery+Road — monk spot from monastery-0, field-0 at bottom-left
     'G': [{ id: 'field-0', x: 50, y: 75 }], // City top
     'H': [ // F-R-R-C
         { id: 'field-0', x: 50, y: 15 },
