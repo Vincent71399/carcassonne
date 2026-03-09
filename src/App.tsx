@@ -41,6 +41,14 @@ const SCORING_CSS = `
     85% { transform: translate(-50%, -70px) scale(1); opacity: 1; }
     100% { transform: translate(-50%, -90px) scale(0.8); opacity: 0; }
 }
+
+@keyframes dotPulse {
+    0%, 100% { opacity: 0.3; transform: scale(0.8); }
+    50% { opacity: 1; transform: scale(1.2); }
+}
+.thinking-dot {
+    animation: dotPulse 1s infinite;
+}
 `;
 
 const AUDIO_MAP = {
@@ -84,6 +92,7 @@ function App() {
 
   // We need to remember what the AI decided to do with its meeple when it calculated the tile placement
   const [pendingAIMove, setPendingAIMove] = useState<{ meeplePlacement?: { featureId: string } } | null>(null);
+  const [isAiThinking, setIsAiThinking] = useState(false);
   const [aiFocusTarget, setAiFocusTarget] = useState<{ x: number, y: number } | null>(null);
 
   const [showDeckViewer, setShowDeckViewer] = useState(false);
@@ -331,6 +340,11 @@ function App() {
 
       // It's the AI's turn! Depending on phase, it acts.
       if (gameState.turnPhase === 'PlaceTile') {
+        setIsAiThinking(true);
+        // Small delay to let the UI update and show the thinking status
+        await new Promise(r => setTimeout(r, 400));
+        if (!active) return;
+
         const move = calculateBestAIMove(gameState, currentPlayer);
 
         if (move) {
@@ -345,8 +359,11 @@ function App() {
           if (success) {
             setPendingAIMove(move); // Remember what the AI wanted to do with the meeple
             setAiFocusTarget(null);
+            setIsAiThinking(false);
             setGameState(newState);
           }
+        } else {
+          setIsAiThinking(false);
         }
       }
 
@@ -641,7 +658,22 @@ function App() {
               fontWeight: isCurrent ? 'bold' : 'normal'
             }}>
               <div>
-                <div style={{ fontSize: '14px', color: '#333' }}>{gameState.playerNames[pid] || t('startScreen.playerPlaceholder', { id: pid })}</div>
+                <div style={{ fontSize: '14px', color: '#333', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {gameState.playerNames[pid] || t('startScreen.playerPlaceholder', { id: pid })}
+                  {isCurrent && isAiThinking && (
+                    <span style={{
+                      display: 'inline-flex',
+                      gap: '2px',
+                      fontSize: '12px',
+                      color: UI_COLORS.primary,
+                      fontWeight: 'bold'
+                    }}>
+                      <span className="thinking-dot">.</span>
+                      <span className="thinking-dot" style={{ animationDelay: '0.2s' }}>.</span>
+                      <span className="thinking-dot" style={{ animationDelay: '0.4s' }}>.</span>
+                    </span>
+                  )}
+                </div>
                 {/* Score Breakdown display */}
                 <div style={{ fontSize: '11px', color: '#666', marginTop: 2, display: 'flex', gap: 6 }}>
                   <div>🏰 {gameState.midGameScoreBreakdown[pid]?.city + (gameState.endGameScoreBreakdown?.[pid]?.city || 0)}</div>
