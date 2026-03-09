@@ -19,6 +19,7 @@
     },
     "game": {
         "scoreboard": "计分板",
+        "playerTurn": "{{name}} 的回合",
         "toggleFieldView": "切换草地占领视图",
         "showRemainingTiles": "查看剩余板块",
         "muteSound": "静音",

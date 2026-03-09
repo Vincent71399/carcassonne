@@ -19,6 +19,7 @@
     },
     "game": {
         "scoreboard": "Scoreboard",
+        "playerTurn": "{{name}}'s Turn",
         "toggleFieldView": "Toggle Field Conquer View",
         "showRemainingTiles": "Show Remaining Tiles",
         "muteSound": "Mute Sound",

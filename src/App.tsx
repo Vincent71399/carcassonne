@@ -42,12 +42,54 @@ const SCORING_CSS = `
     100% { transform: translate(-50%, -90px) scale(0.8); opacity: 0; }
 }
 
-@keyframes dotPulse {
-    0%, 100% { opacity: 0.3; transform: scale(0.8); }
-    50% { opacity: 1; transform: scale(1.2); }
+@keyframes bannerFadeIn {
+    from { opacity: 0; transform: translate(-50%, -20px); }
+    to { opacity: 1; transform: translate(-50%, 0); }
 }
-.thinking-dot {
-    animation: dotPulse 1s infinite;
+
+@keyframes bannerPulse {
+    0%, 100% { transform: translate(-50%, 0) scale(1); }
+    50% { transform: translate(-50%, 0) scale(1.02); }
+}
+
+.thinking-banner {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(8px);
+    padding: 12px 24px;
+    border-radius: 50px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border: 1.5px solid var(--player-color-faint, rgba(25, 118, 210, 0.3));
+    animation: bannerFadeIn 0.4s ease-out forwards, bannerPulse 2s infinite ease-in-out;
+    pointer-events: none;
+}
+
+.thinking-banner-text {
+    color: var(--player-color, #1976d2);
+    font-weight: 600;
+    font-size: 16px;
+    font-family: sans-serif;
+    letter-spacing: 0.5px;
+}
+
+.spinner {
+    width: 18px;
+    height: 18px;
+    border: 2px solid var(--player-color-faint, rgba(25, 118, 210, 0.1));
+    border-top: 2px solid var(--player-color, #1976d2);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
 }
 `;
 
@@ -341,30 +383,37 @@ function App() {
       // It's the AI's turn! Depending on phase, it acts.
       if (gameState.turnPhase === 'PlaceTile') {
         setIsAiThinking(true);
-        // Small delay to let the UI update and show the thinking status
-        await new Promise(r => setTimeout(r, 400));
+        // Larger delay to ensure the overlay paints before the main thread is hammered
+        await new Promise(r => setTimeout(r, 600));
         if (!active) return;
 
-        const move = calculateBestAIMove(gameState, currentPlayer);
+        // Use requestAnimationFrame to ensure we are in a clean state
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            const move = calculateBestAIMove(gameState, currentPlayer);
 
-        if (move) {
-          // Focus before placing
-          setAiFocusTarget({ x: move.tilePlacement.x, y: move.tilePlacement.y });
-          await new Promise(r => setTimeout(r, 800)); // wait for pan
-          if (!active) return;
+            if (move) {
+              // Focus before placing
+              setAiFocusTarget({ x: move.tilePlacement.x, y: move.tilePlacement.y });
+              setTimeout(async () => {
+                if (!active) return;
+                await new Promise(r => setTimeout(r, 800)); // wait for pan
 
-          setPrePlacementState(gameState);
-          const newState: GameState = JSON.parse(JSON.stringify(gameState));
-          const success = placeTile(newState, currentPlayer, move.handIndex, move.tilePlacement.x, move.tilePlacement.y, move.tilePlacement.rotation);
-          if (success) {
-            setPendingAIMove(move); // Remember what the AI wanted to do with the meeple
-            setAiFocusTarget(null);
-            setIsAiThinking(false);
-            setGameState(newState);
-          }
-        } else {
-          setIsAiThinking(false);
-        }
+                setPrePlacementState(gameState);
+                const newState: GameState = JSON.parse(JSON.stringify(gameState));
+                const success = placeTile(newState, currentPlayer, move.handIndex, move.tilePlacement.x, move.tilePlacement.y, move.tilePlacement.rotation);
+                if (success) {
+                  setPendingAIMove(move); // Remember what the AI wanted to do with the meeple
+                  setAiFocusTarget(null);
+                  setIsAiThinking(false);
+                  setGameState(newState);
+                }
+              }, 100);
+            } else {
+              setIsAiThinking(false);
+            }
+          }, 0);
+        });
       }
 
       if (gameState.turnPhase === 'PlaceMeeple') {
@@ -523,6 +572,22 @@ function App() {
     >
       <style>{SCORING_CSS}</style>
 
+      {/* AI Thinking Banner */}
+      {isAiThinking && (
+        <div
+          className="thinking-banner"
+          style={{
+            '--player-color': PLAYER_COLORS[currentPlayer],
+            '--player-color-faint': `${PLAYER_COLORS[currentPlayer]}44`
+          } as React.CSSProperties}
+        >
+          <div className="spinner"></div>
+          <div className="thinking-banner-text">
+            {t('game.playerTurn', { name: gameState.playerNames[currentPlayer] }) || `${gameState.playerNames[currentPlayer]}'s turn`}
+          </div>
+        </div>
+      )}
+
 
       {/* Scoreboard Toggle (Mobile only) */}
       {isScoreboardRetractable && (
@@ -660,19 +725,6 @@ function App() {
               <div>
                 <div style={{ fontSize: '14px', color: '#333', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   {gameState.playerNames[pid] || t('startScreen.playerPlaceholder', { id: pid })}
-                  {isCurrent && isAiThinking && (
-                    <span style={{
-                      display: 'inline-flex',
-                      gap: '2px',
-                      fontSize: '12px',
-                      color: UI_COLORS.primary,
-                      fontWeight: 'bold'
-                    }}>
-                      <span className="thinking-dot">.</span>
-                      <span className="thinking-dot" style={{ animationDelay: '0.2s' }}>.</span>
-                      <span className="thinking-dot" style={{ animationDelay: '0.4s' }}>.</span>
-                    </span>
-                  )}
                 </div>
                 {/* Score Breakdown display */}
                 <div style={{ fontSize: '11px', color: '#666', marginTop: 2, display: 'flex', gap: 6 }}>
