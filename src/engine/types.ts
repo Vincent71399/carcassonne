@@ -1,5 +1,5 @@
 export type PlayerId = number;
-export type PlayerType = 'human' | 'ai-noob';
+export type PlayerType = 'human' | 'ai-noob' | 'ai-easy' | 'ai-medium';
 
 export type FeatureType = 'city' | 'road' | 'field' | 'monastery';
 

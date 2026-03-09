@@ -60,9 +60,9 @@ export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame 
         if (saved) return JSON.parse(saved);
         return {
             1: 'human',
-            2: 'ai-easy',
-            3: 'ai-easy',
-            4: 'ai-easy'
+            2: 'ai-noob',
+            3: 'ai-noob',
+            4: 'ai-noob'
         };
     });
     const [names, setNames] = useState<Record<number, string>>(() => {
@@ -293,8 +293,8 @@ export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame 
                                                 }));
                                                 setNames(prev => {
                                                     const newNames = { ...prev };
-                                                    if (!newNames[3]) newNames[3] = getRandomAiName(Object.values(newNames), `(${t('startScreen.computer').substring(0, 2)})`);
-                                                    if (!newNames[4]) newNames[4] = getRandomAiName(Object.values(newNames), `(${t('startScreen.computer').substring(0, 2)})`);
+                                                    if (!newNames[3]) newNames[3] = getRandomAiName(Object.values(newNames), t('startScreen.aiMarker'));
+                                                    if (!newNames[4]) newNames[4] = getRandomAiName(Object.values(newNames), t('startScreen.aiMarker'));
                                                     return newNames;
                                                 });
                                             }
@@ -335,7 +335,9 @@ export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame 
                                             }}
                                         >
                                             <option value="human">{t('startScreen.human')}</option>
-                                            <option value="ai-easy">{t('startScreen.computer')}</option>
+                                            <option value="ai-noob">{t('startScreen.aiNoob')}</option>
+                                            <option value="ai-easy">{t('startScreen.aiEasy')}</option>
+                                            <option value="ai-medium">{t('startScreen.aiMedium')}</option>
                                         </select>
                                         <input
                                             type="text"

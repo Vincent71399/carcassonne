@@ -56,11 +56,11 @@ async function runMatch(types: Record<number, PlayerType>, names: Record<number,
     return state;
 }
 
-async function runTournament() {
+async function runTournament(p1Type: PlayerType = 'ai-medium', p2Type: PlayerType = 'ai-easy') {
     console.log("Starting 2-Player AI Tournament (10 games each match-up)...");
 
     const matchups = [
-        { name: "Computer vs Computer", types: { 1: 'ai-easy', 2: 'ai-easy' } as Record<number, PlayerType> },
+        { name: `${p1Type} vs ${p2Type}`, types: { 1: p1Type, 2: p2Type } as Record<number, PlayerType> },
     ];
 
     const MATCHES_PER_PAIR = 10;
@@ -75,7 +75,7 @@ async function runTournament() {
         for (let i = 0; i < MATCHES_PER_PAIR; i++) {
             const names: Record<number, string> = {};
             for (const p of Object.keys(matchup.types)) {
-                names[Number(p)] = `P${p} (Computer)`;
+                names[Number(p)] = `P${p} (${matchup.types[Number(p)]})`;
             }
 
             const finalState = await runMatch(matchup.types as Record<number, PlayerType>, names);
