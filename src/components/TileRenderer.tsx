@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useId } from 'react';
 import type { TileDefinition, PlacedTile, EdgeDirection } from '../engine/types';
 import { PLAYER_COLORS, FEATURE_COLORS } from '../engine/constants';
 
@@ -44,6 +44,7 @@ export const TileRenderer: React.FC<TileRendererProps> = ({
     animate = true
 }) => {
     const [hoveredFeature, setHoveredFeature] = useState<string | null>(null);
+    const tileClipId = useId();
 
     const rotation = placed?.rotation || 0;
 
@@ -237,40 +238,48 @@ export const TileRenderer: React.FC<TileRendererProps> = ({
                 height={size}
                 viewBox="0 0 100 100"
                 style={{
-                    borderRadius: '4px',
                     display: 'block',
                     transform: `rotate(${rotation * 90}deg)`,
-                    transition: animate ? 'transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1)' : 'none'
+                    transition: animate ? 'transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1)' : 'none',
+                    overflow: 'visible'
                 }}
             >
-                {/* Base Field */}
-                <rect x="0" y="0" width="100" height="100" fill="#7cb342" />
+                <defs>
+                    <clipPath id={tileClipId}>
+                        <rect x="0" y="0" width="100" height="100" rx="4" ry="4" />
+                    </clipPath>
+                </defs>
 
-                {/* Features */}
-                {renderRoads()}
-                {renderCrossroads()}
+                <g clipPath={`url(#${tileClipId})`}>
+                    {/* Base Field */}
+                    <rect x="0" y="0" width="100" height="100" fill="#7cb342" rx="4" ry="4" />
 
-                {renderCities()}
+                    {/* Features */}
+                    {renderRoads()}
+                    {renderCrossroads()}
 
-                {/* Monastery */}
-                {def.monastery && (
-                    <g transform={`translate(50, 50) rotate(${-rotation * 90})`}>
-                        {/* Dirt plot */}
-                        <circle cx="0" cy="0" r="22" fill="#cda87a" />
-                        {/* Walled garden */}
-                        <circle cx="0" cy="0" r="18" fill="#aed581" stroke="#8b5a2b" strokeWidth="1" />
-                        {/* Main building */}
-                        <rect x="-10" y="-12" width="20" height="24" fill="#cfd8dc" stroke="#607d8b" strokeWidth="1" />
-                        {/* Roof */}
-                        <polygon points="-12,-12 0,-22 12,-12" fill="#c62828" stroke="#8e0000" strokeWidth="1" />
-                        {/* Tower */}
-                        <rect x="-4" y="-26" width="8" height="14" fill="#eceff1" stroke="#607d8b" strokeWidth="1" />
-                        <polygon points="-6,-26 0,-34 6,-26" fill="#1565c0" stroke="#0d47a1" strokeWidth="1" />
-                        {/* Doors/Windows */}
-                        <path d="M -3 10 L -3 4 A 3 3 0 0 1 3 4 L 3 10 Z" fill="#5d4037" />
-                        <circle cx="0" cy="-4" r="2" fill="#212121" />
-                    </g>
-                )}
+                    {renderCities()}
+
+                    {/* Monastery */}
+                    {def.monastery && (
+                        <g transform={`translate(50, 50) rotate(${-rotation * 90})`}>
+                            {/* Dirt plot */}
+                            <circle cx="0" cy="0" r="22" fill="#cda87a" />
+                            {/* Walled garden */}
+                            <circle cx="0" cy="0" r="18" fill="#aed581" stroke="#8b5a2b" strokeWidth="1" />
+                            {/* Main building */}
+                            <rect x="-10" y="-12" width="20" height="24" fill="#cfd8dc" stroke="#607d8b" strokeWidth="1" />
+                            {/* Roof */}
+                            <polygon points="-12,-12 0,-22 12,-12" fill="#c62828" stroke="#8e0000" strokeWidth="1" />
+                            {/* Tower */}
+                            <rect x="-4" y="-26" width="8" height="14" fill="#eceff1" stroke="#607d8b" strokeWidth="1" />
+                            <polygon points="-6,-26 0,-34 6,-26" fill="#1565c0" stroke="#0d47a1" strokeWidth="1" />
+                            {/* Doors/Windows */}
+                            <path d="M -3 10 L -3 4 A 3 3 0 0 1 3 4 L 3 10 Z" fill="#5d4037" />
+                            <circle cx="0" cy="-4" r="2" fill="#212121" />
+                        </g>
+                    )}
+                </g>
 
                 {/* Render placed meeples */}
                 {placed?.meeples?.map((pm, idx) => {
