@@ -99,7 +99,7 @@ async function runTournament(p1Type: PlayerType, p2Type: PlayerType) {
             console.log(`Match ${String(i + 1).padStart(2, ' ')} | ${scoreStrs.join(' vs ')} | ${resultStr}`);
         }
 
-        const winStrs = Object.keys(wins).map(p => `P${p} (Computer) won ${wins[Number(p)]}`);
+        const winStrs = Object.keys(wins).map(p => `P${p} (${matchup.types[Number(p)]}) won ${wins[Number(p)]}`);
         console.log(`\n[RESULT] ${matchup.name}: ${winStrs.join(', ')}, Ties: ${ties}`);
         console.log(`======================================================`);
     }
