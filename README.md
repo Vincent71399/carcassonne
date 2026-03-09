@@ -6,7 +6,8 @@ A web-based implementation of the Carcassonne board game, featuring a 3-tile han
 ## Live Demo
 Check out the live game here: [https://vincent71399.github.io/carcassonne/](https://vincent71399.github.io/carcassonne/)
 
-<img width="1085" height="852" alt="image" src="https://github.com/user-attachments/assets/132c5d62-77e2-4daf-85d9-be1a358212a8" />
+<img width="500" height="392" alt="image" src="https://github.com/user-attachments/assets/9ea209df-7687-4beb-aa58-0595b0a77954" />
+
 
 ## Features
 - Classic Carcassonne gameplay.
