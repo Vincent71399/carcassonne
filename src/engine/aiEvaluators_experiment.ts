@@ -1,7 +1,8 @@
-import type { GameState, PlayerId, PlacedTile, FeatureType, EdgeDirection, TileDefinition, TileEdges, DetailedEdge } from './types';
+import type { GameState, PlayerId, PlacedTile, FeatureType, EdgeDirection, TileDefinition } from './types';
 import { evaluateFeature, evaluateMonastery, type FeatureEvaluation } from './features';
 import { TILES_MAP } from './tiles';
 import { AI_CONSTANTS_EXPERIMENT } from './aiConstants';
+import { isValidPlacement, rotateEdges } from './board';
 
 export function evaluateFieldAttack(
     board: GameState['board'],
@@ -80,6 +81,9 @@ export function evaluateFieldAttack(
     const attackerOpenEdgesByJunction = new Map<string, { x: number, y: number, segment: string }[]>();
     attackerFeatures.forEach(af => {
         getOpenFieldEdges(af, board).forEach(oe => {
+            // ONLY consider open edges of the newly placed tile itself
+            if (oe.x !== currentPos.x || oe.y !== currentPos.y) return;
+
             const dx_dir = oe.segment.split('-')[0] as EdgeDirection;
             const jx = oe.x + (dx_dir === 'right' ? 1 : dx_dir === 'left' ? -1 : 0);
             const jy = oe.y + (dx_dir === 'bottom' ? 1 : dx_dir === 'top' ? -1 : 0);
@@ -112,7 +116,7 @@ export function evaluateFieldAttack(
             const matchingAttackerEdges = attackerOpenEdgesByJunction.get(junctionKey);
             if (matchingAttackerEdges) {
                 matchingAttackerEdges.forEach(attackerEdge => {
-                    const connectingTiles = findConnectingFieldTiles(jx, jy, targetEdge.segment, attackerEdge.segment, hand, deck);
+                    const connectingTiles = findConnectingFieldTiles(board, jx, jy, targetEdge.segment, attackerEdge.segment, hand, deck);
                     if (connectingTiles.count > 0) {
                         const attackerMeeplesPerPid: Record<PlayerId, number> = {};
                         allPlayerIds.forEach(pid => { attackerMeeplesPerPid[pid] = 0; });
@@ -153,18 +157,48 @@ export function evaluateFieldAttack(
                                 calculatePossibilityFactor(connectingTiles.count, deck.length, allPlayerIds.length);
 
                             const targetCities = getFieldCities(target, board);
-                            let newCitiesCount = 0;
+
+                            // Control State Change Check:
+                            // We only count this as an attack if joining these fields changes 
+                            // who gets points for which cities.
+
+                            const citiesGainedByAttacker = new Set<string>();
+
                             targetCities.forEach(cKey => {
+                                // A city is gained only if the attacker didn't already have it 
+                                // via ANY of their current fields.
                                 if (!attackerAlreadyControlledCities.has(cKey)) {
-                                    newCitiesCount++;
+                                    citiesGainedByAttacker.add(cKey);
                                 }
+                                
+                                // A city is lost by the opponent if the attacker becomes the sole winner or a sharer
+                                // in a way that reduces the opponent's relative ownership (though in Carcassonne 
+                                // you only lose points if you are no longer a winner).
                             });
 
-                            const A_gain = newCitiesCount * 3 * pFactor;
+                            const A_is_already_winner = targetWinners.includes(attackerId);
+                            
+                            if (citiesGainedByAttacker.size === 0 && !A_is_already_winner) {
+                                // If no new cities are gained, and we weren't a winner before,
+                                // we might still be gaining a share of points? 
+                                // Actually, if we weren't a winner, and we gain NO cities,
+                                // it means the target field touches NO cities we don't already touch.
+                                // BUT! We might be gaining the points for those cities if we were previously
+                                // NOT getting them from our own field?
+                                // No, attackerAlreadyControlledCities includes all cities P1 gets points for.
+                                // So if citiesGainedByAttacker is empty, we gain 0 points.
+                                return; 
+                            }
+
+                            // Only count as attack if the set of winners for the target field's cities changes.
+                            // Joining an existing field always adds the attacker to the set of winners.
+                            // If the attacker was ALREADY a winner (shared), joining doesn't change points for them.
+                            
+                            const A_gain = A_is_already_winner ? 0 : citiesGainedByAttacker.size * 3 * pFactor;
                             const O_loss = (A_total > O_count) ? targetCities.size * 3 * pFactor : 0;
 
-                            results[attackerId] = Math.max(results[attackerId], A_gain);
-                            results[targetOwnerId] = Math.min(results[targetOwnerId], -O_loss) || 0;
+                            if (A_gain > 0) results[attackerId] = Math.max(results[attackerId], A_gain);
+                            if (O_loss > 0) results[targetOwnerId] = Math.min(results[targetOwnerId], -O_loss) || 0;
                         }
                     }
                 });
@@ -415,6 +449,8 @@ export function evaluateCityAttack(
     const attackerOpenEdgesByJunction = new Map<string, { x: number, y: number, dir: EdgeDirection }[]>();
     attackerCities.forEach(ac => {
         getOpenCityEdges(ac, board).forEach(oe => {
+            if (oe.x !== ax || oe.y !== ay) return;
+
             const jx = oe.x + (oe.dir === 'right' ? 1 : oe.dir === 'left' ? -1 : 0);
             const jy = oe.y + (oe.dir === 'bottom' ? 1 : oe.dir === 'top' ? -1 : 0);
             const key = `${jx},${jy}`;
@@ -447,7 +483,7 @@ export function evaluateCityAttack(
             const matchingAttackerEdges = attackerOpenEdgesByJunction.get(junctionKey);
             if (matchingAttackerEdges) {
                 matchingAttackerEdges.forEach(attackerEdge => {
-                    const connectingTiles = findConnectingTiles(jx, jy, targetEdge.dir, attackerEdge.dir, attackerHand, deck);
+                    const connectingTiles = findConnectingTiles(board, jx, jy, targetEdge.dir, attackerEdge.dir, attackerHand, deck);
                     if (connectingTiles.count > 0) {
                         const attackerCity = attackerCities.find(ac =>
                             getOpenCityEdges(ac, board).some(oe => oe.x === attackerEdge.x && oe.y === attackerEdge.y && oe.dir === attackerEdge.dir)
@@ -572,6 +608,8 @@ export function evaluateRoadAttack(
     const attackerOpenEdgesByJunction = new Map<string, { x: number, y: number, dir: EdgeDirection }[]>();
     attackerRoads.forEach(ar => {
         getOpenRoadEdges(ar, board).forEach(oe => {
+            if (oe.x !== ax || oe.y !== ay) return;
+
             const jx = oe.x + (oe.dir === 'right' ? 1 : oe.dir === 'left' ? -1 : 0);
             const jy = oe.y + (oe.dir === 'bottom' ? 1 : oe.dir === 'top' ? -1 : 0);
             const key = `${jx},${jy}`;
@@ -604,7 +642,7 @@ export function evaluateRoadAttack(
             const matchingAttackerEdges = attackerOpenEdgesByJunction.get(junctionKey);
             if (matchingAttackerEdges) {
                 matchingAttackerEdges.forEach(attackerEdge => {
-                    const connectingTiles = findConnectingRoadTiles(jx, jy, targetEdge.dir, attackerEdge.dir, attackerHand, deck);
+                    const connectingTiles = findConnectingRoadTiles(board, jx, jy, targetEdge.dir, attackerEdge.dir, attackerHand, deck);
                     if (connectingTiles.count > 0) {
                         const attackerRoad = attackerRoads.find(ar =>
                             getOpenRoadEdges(ar, board).some(oe => oe.x === attackerEdge.x && oe.y === attackerEdge.y && oe.dir === attackerEdge.dir)
@@ -730,7 +768,7 @@ function getOpenRoadEdges(ev: FeatureEvaluation, board: GameState['board']): { x
     return open;
 }
 
-function findConnectingRoadTiles(_jx: number, _jy: number, targetDir: EdgeDirection, attackerDir: EdgeDirection, hand: GameState['hands'][PlayerId], deck: GameState['deck']) {
+function findConnectingRoadTiles(board: GameState['board'], jx: number, jy: number, targetDir: EdgeDirection, attackerDir: EdgeDirection, hand: GameState['hands'][PlayerId], deck: GameState['deck']) {
     const neededDirs: EdgeDirection[] = [
         targetDir === 'right' ? 'left' : targetDir === 'left' ? 'right' : targetDir === 'top' ? 'bottom' : 'top',
         attackerDir === 'right' ? 'left' : attackerDir === 'left' ? 'right' : attackerDir === 'top' ? 'bottom' : 'top'
@@ -739,6 +777,7 @@ function findConnectingRoadTiles(_jx: number, _jy: number, targetDir: EdgeDirect
     const fits = (t: TileDefinition) => {
         for (let r = 0; r < 4; r++) {
             const rotSteps = r;
+            if (!isValidPlacement(board, jx, jy, t, rotSteps)) continue;
             const edges = rotateEdges(t.edges, rotSteps);
             if (neededDirs.every(d => edges[d][1] === 'road')) {
                 if (t.roadConnections) {
@@ -797,7 +836,7 @@ function getOpenFieldEdges(ev: FeatureEvaluation, board: GameState['board']): { 
     return open;
 }
 
-function findConnectingFieldTiles(_jx: number, _jy: number, targetSeg: string, attackerSeg: string, hand: GameState['hands'][PlayerId], deck: GameState['deck']) {
+function findConnectingFieldTiles(board: GameState['board'], jx: number, jy: number, targetSeg: string, attackerSeg: string, hand: GameState['hands'][PlayerId], deck: GameState['deck']) {
     const matchSeg = (s: string): string => {
         const [dir, num] = s.split('-');
         const opp: Record<string, string> = { top: 'bottom', bottom: 'top', left: 'right', right: 'left' };
@@ -812,6 +851,7 @@ function findConnectingFieldTiles(_jx: number, _jy: number, targetSeg: string, a
         if (!t.fieldConnections) return false;
         for (let r = 0; r < 4; r++) {
             const rotSteps = r;
+            if (!isValidPlacement(board, jx, jy, t, rotSteps)) continue;
             const seg1_orig = getOriginalFieldSeg(neededSeg1, rotSteps);
             const seg2_orig = getOriginalFieldSeg(neededSeg2, rotSteps);
             if (t.fieldConnections.some(conn => conn.includes(seg1_orig) && conn.includes(seg2_orig))) return true;
@@ -824,11 +864,7 @@ function findConnectingFieldTiles(_jx: number, _jy: number, targetSeg: string, a
     return { inHand, count: inHand ? 1 : countInDeck };
 }
 
-function findConnectingTiles(_jx: number, _jy: number, targetDir: EdgeDirection, attackerDir: EdgeDirection, hand: GameState['hands'][PlayerId], deck: GameState['deck']) {
-
-    // We need a tile at jx,jy that has city at the OPPOSITE of targetDir and OPPOSITE of attackerDir.
-    // e.g. if Target is at Left of Junction (targetDir=right), junction needs city at Left.
-    // if Attacker is at Top of Junction (attackerDir=bottom), junction needs city at Top.
+function findConnectingTiles(board: GameState['board'], jx: number, jy: number, targetDir: EdgeDirection, attackerDir: EdgeDirection, hand: GameState['hands'][PlayerId], deck: GameState['deck']) {
     const neededDirs: EdgeDirection[] = [
         targetDir === 'right' ? 'left' : targetDir === 'left' ? 'right' : targetDir === 'top' ? 'bottom' : 'top',
         attackerDir === 'right' ? 'left' : attackerDir === 'left' ? 'right' : attackerDir === 'top' ? 'bottom' : 'top'
@@ -836,15 +872,13 @@ function findConnectingTiles(_jx: number, _jy: number, targetDir: EdgeDirection,
 
     const fits = (t: TileDefinition) => {
         for (let r = 0; r < 4; r++) {
-            const rotDeg = r * 90;
-            const edges = rotateEdges(t.edges, rotDeg);
+            const rotSteps = r;
+            if (!isValidPlacement(board, jx, jy, t, rotSteps)) continue;
+            const edges = rotateEdges(t.edges, rotSteps);
             if (neededDirs.every(d => edges[d][0] === 'city')) {
-                // Also check if these two city edges are connected internally
-                if (t.cityConnections) {
-                    const localD1 = getOriginalDir(neededDirs[0], rotDeg);
-                    const localD2 = getOriginalDir(neededDirs[1], rotDeg);
-                    if (t.cityConnections.some((conn: EdgeDirection[]) => conn.includes(localD1) && conn.includes(localD2))) return true;
-                }
+                const localD1 = getOriginalDir(neededDirs[0], rotSteps);
+                const localD2 = getOriginalDir(neededDirs[1], rotSteps);
+                if (t.cityConnections && t.cityConnections.some((conn: EdgeDirection[]) => conn.includes(localD1) && conn.includes(localD2))) return true;
             }
         }
         return false;
@@ -852,7 +886,6 @@ function findConnectingTiles(_jx: number, _jy: number, targetDir: EdgeDirection,
 
     const inHand = hand.some(fits);
     const countInDeck = deck.filter(fits).length;
-
     return { inHand, count: inHand ? 1 : countInDeck };
 }
 
@@ -904,19 +937,7 @@ function combination(a: number, b: number): number {
 /**
  * Calculates the score impact of monasteries that are still in progress.
  */
-function rotateEdges(edges: TileEdges, rotations: number): TileEdges {
-    let rotated = { ...edges };
-    const r = rotations % 4;
-    for (let i = 0; i < r; i++) {
-        rotated = {
-            top: [...rotated.left] as DetailedEdge,
-            right: [...rotated.top] as DetailedEdge,
-            bottom: [...rotated.right] as DetailedEdge,
-            left: [...rotated.bottom] as DetailedEdge
-        };
-    }
-    return rotated;
-}
+
 
 /**
  * Calculates the score change for fields.

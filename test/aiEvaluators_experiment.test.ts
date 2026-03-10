@@ -135,6 +135,50 @@ describe('AI Evaluators Experiment - Final Suite', () => {
             expect(attack[p1]).toBe(3);
             expect(attack[p2]).toBe(-3);
         });
+
+        describe('FieldAttack Refinements', () => {
+            const createBaseFieldBoard = (): GameState['board'] => {
+                const board: GameState['board'] = {};
+                addTile(board, 0, 0, 'A', 0, 't0');
+                addMeeple(board, 0, 0, p1, 'field-1');
+                addTile(board, 2, 0, 'A', 0, 't1');
+                addMeeple(board, 2, 0, p2, 'field-1');
+                return board;
+            };
+
+            it('should NOT count connectingTile if it cannot be placed due to other neighbors', () => {
+                const board = createBaseFieldBoard();
+                addTile(board, 1, -1, 'E', 0, 't2');
+                const results = evaluateFieldAttack(board, p1, players, { x: 0, y: 0 }, [TILES_MAP['U']], []);
+                expect(results[p1]).toBe(0);
+            });
+
+            it('should NOT count connectingTile if field remains separated by internal road', () => {
+                const board = createBaseFieldBoard();
+                const results = evaluateFieldAttack(board, p1, players, { x: 0, y: 0 }, [TILES_MAP['V']], []);
+                expect(results[p1]).toBe(0);
+            });
+
+            it('should only treat as FieldAttack if control state of cities changes', () => {
+                const board = createBaseFieldBoard();
+                addTile(board, 0, -1, 'G', 2, 't4');
+                addTile(board, 2, -1, 'G', 2, 't5');
+                const results = evaluateFieldAttack(board, p1, players, { x: 0, y: 0 }, [TILES_MAP['U']], []);
+                expect(results[p1]).toBe(0);
+            });
+
+            it('should NOT give attack score if Tile A separates players and no valid merge exists', () => {
+                const board: GameState['board'] = {};
+                addTile(board, 0, 0, 'G', 1, 't7');
+                addMeeple(board, 0, 0, p2, 'field-0');
+                addTile(board, 1, 0, 'G', 3, 't_comp');
+                addTile(board, 2, 0, 'A', 0, 't8');
+                addMeeple(board, 2, 0, p1, 'field-1');
+
+                const results = evaluateFieldAttack(board, p1, players, { x: 2, y: 0 }, [TILES_MAP['B']], []);
+                expect(results[p1]).toBe(0);
+            });
+        });
     });
 
     describe('One-Sided City Bonus (G-M)', () => {
