@@ -15,7 +15,8 @@
         "startGame": "开始游戏",
         "howToPlay": "游戏玩法 ❔",
         "author": "作者: vincent71399",
-        "aiMarker": "(电脑)"
+        "aiMarker": "(电脑)",
+        "computer": "电脑"
     },
     "game": {
         "scoreboard": "计分板",

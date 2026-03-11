@@ -15,7 +15,8 @@
         "startGame": "Start Game",
         "howToPlay": "How to Play ❔",
         "author": "author: vincent71399",
-        "aiMarker": "(AI)"
+        "aiMarker": "(AI)",
+        "computer": "Computer"
     },
     "game": {
         "scoreboard": "Scoreboard",
