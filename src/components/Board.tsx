@@ -54,7 +54,8 @@ export const Board: React.FC<BoardProps> = ({ state, pan, setPan, zoom, setZoom,
     // Auto-focus the camera when requested
     useEffect(() => {
         if (focusTarget) {
-            handleSetPan({ x: -focusTarget.x * 100, y: -focusTarget.y * 100 });
+            // Offset the y-position upward by 80px to clear the bottom UI panel (hand/controls)
+            handleSetPan({ x: -focusTarget.x * 100, y: -focusTarget.y * 100 - 80 });
         }
     }, [focusTarget, handleSetPan]);
 
