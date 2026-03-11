@@ -93,56 +93,77 @@ export const Board: React.FC<BoardProps> = ({ state, pan, setPan, zoom, setZoom,
         (e.target as HTMLElement).releasePointerCapture(e.pointerId);
     };
 
-    // Mobile touch handlers for better Safari support and pinch-to-zoom
-    const handleTouchStart = (e: React.TouchEvent) => {
-        if (e.touches.length === 1) {
-            const touch = e.touches[0];
-            isDraggingRef.current = true;
-            dragStartedRef.current = false;
-            setIsDragging(true);
-            lastPan.current = { x: touch.clientX, y: touch.clientY };
-            startPoint.current = { x: touch.clientX, y: touch.clientY };
-        } else if (e.touches.length === 2) {
-            // Start pinch
+    const boardRef = useRef<HTMLDivElement>(null);
+
+    // Manual non-passive listeners to reliably prevent iPad window drag/bounce
+    useEffect(() => {
+        const board = boardRef.current;
+        if (!board) return;
+
+        const handleTS = (e: TouchEvent) => {
+            if (e.touches.length === 1) {
+                const touch = e.touches[0];
+                isDraggingRef.current = true;
+                dragStartedRef.current = false;
+                setIsDragging(true);
+                lastPan.current = { x: touch.clientX, y: touch.clientY };
+                startPoint.current = { x: touch.clientX, y: touch.clientY };
+            } else if (e.touches.length === 2) {
+                isDraggingRef.current = false;
+                setIsDragging(false);
+                lastPinchDist.current = Math.hypot(
+                    e.touches[0].clientX - e.touches[1].clientX,
+                    e.touches[0].clientY - e.touches[1].clientY
+                );
+            }
+        };
+
+        const handleTM = (e: TouchEvent) => {
+            // CRITICAL: Block iPad fullscreen drag-down gesture
+            if (e.cancelable) e.preventDefault();
+
+            if (e.touches.length === 1 && isDraggingRef.current) {
+                const touch = e.touches[0];
+                const dx = touch.clientX - lastPan.current.x;
+                const dy = touch.clientY - lastPan.current.y;
+
+                const totalDist = Math.sqrt(Math.pow(touch.clientX - startPoint.current.x, 2) + Math.pow(touch.clientY - startPoint.current.y, 2));
+                if (totalDist > DRAG_THRESHOLD) {
+                    dragStartedRef.current = true;
+                }
+
+                handleSetPan(p => ({ x: p.x + dx, y: p.y + dy }));
+                lastPan.current = { x: touch.clientX, y: touch.clientY };
+            } else if (e.touches.length === 2 && lastPinchDist.current !== null) {
+                const dist = Math.hypot(
+                    e.touches[0].clientX - e.touches[1].clientX,
+                    e.touches[0].clientY - e.touches[1].clientY
+                );
+                
+                const zoomFactor = dist / lastPinchDist.current;
+                setZoom(z => Math.min(Math.max(z * zoomFactor, 0.3), 3));
+                lastPinchDist.current = dist;
+            }
+        };
+
+        const handleTE = () => {
             isDraggingRef.current = false;
             setIsDragging(false);
-            lastPinchDist.current = Math.hypot(
-                e.touches[0].clientX - e.touches[1].clientX,
-                e.touches[0].clientY - e.touches[1].clientY
-            );
-        }
-    };
+            lastPinchDist.current = null;
+        };
 
-    const handleTouchMove = (e: React.TouchEvent) => {
-        if (e.touches.length === 1 && isDraggingRef.current) {
-            const touch = e.touches[0];
-            const dx = touch.clientX - lastPan.current.x;
-            const dy = touch.clientY - lastPan.current.y;
+        board.addEventListener('touchstart', handleTS, { passive: false });
+        board.addEventListener('touchmove', handleTM, { passive: false });
+        board.addEventListener('touchend', handleTE);
+        board.addEventListener('touchcancel', handleTE);
 
-            const totalDist = Math.sqrt(Math.pow(touch.clientX - startPoint.current.x, 2) + Math.pow(touch.clientY - startPoint.current.y, 2));
-            if (totalDist > DRAG_THRESHOLD) {
-                dragStartedRef.current = true;
-            }
-
-            handleSetPan(p => ({ x: p.x + dx, y: p.y + dy }));
-            lastPan.current = { x: touch.clientX, y: touch.clientY };
-        } else if (e.touches.length === 2 && lastPinchDist.current !== null) {
-            const dist = Math.hypot(
-                e.touches[0].clientX - e.touches[1].clientX,
-                e.touches[0].clientY - e.touches[1].clientY
-            );
-            
-            const zoomFactor = dist / lastPinchDist.current;
-            setZoom(z => Math.min(Math.max(z * zoomFactor, 0.3), 3));
-            lastPinchDist.current = dist;
-        }
-    };
-
-    const handleTouchEnd = () => {
-        isDraggingRef.current = false;
-        setIsDragging(false);
-        lastPinchDist.current = null;
-    };
+        return () => {
+            board.removeEventListener('touchstart', handleTS);
+            board.removeEventListener('touchmove', handleTM);
+            board.removeEventListener('touchend', handleTE);
+            board.removeEventListener('touchcancel', handleTE);
+        };
+    }, [handleSetPan, setZoom]);
 
     const handleWheel = (e: React.WheelEvent) => {
         if (e.deltaY < 0) {
@@ -154,6 +175,7 @@ export const Board: React.FC<BoardProps> = ({ state, pan, setPan, zoom, setZoom,
 
     return (
         <div
+            ref={boardRef}
             style={{
                 width: '100%',
                 height: '100vh',
@@ -166,10 +188,6 @@ export const Board: React.FC<BoardProps> = ({ state, pan, setPan, zoom, setZoom,
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-            onTouchCancel={handleTouchEnd}
             onWheel={handleWheel}
         >
             <div
