@@ -22,11 +22,24 @@ export function calculateBestAIMove(state: GameState, aiPlayerId: PlayerId): AIM
     const currentHand = state.hands[aiPlayerId];
     if (!currentHand || currentHand.length === 0) return null;
 
-    const tileForActivePlayer = currentHand[0];
+    let bestMove: AIMove | null = null;
+    let bestScore = -Infinity;
 
-    // The Computer AI always evaluates at 0-ply (just greedy current placement)
-    const scoredMoves = getScoredMoves(state, aiPlayerId, tileForActivePlayer, 0);
-    return scoredMoves.length > 0 ? scoredMoves[0].move : null;
+    for (let i = 0; i < currentHand.length; i++) {
+        const tile = currentHand[i];
+        // The Computer AI always evaluates at 0-ply (just greedy current placement)
+        const scoredMoves = getScoredMoves(state, aiPlayerId, tile, i);
+        
+        if (scoredMoves.length > 0) {
+            const topMove = scoredMoves[0];
+            if (topMove.score > bestScore) {
+                bestScore = topMove.score;
+                bestMove = topMove.move;
+            }
+        }
+    }
+
+    return bestMove;
 }
 
 function getAiWeights(type: PlayerType): AIWeights | null {
