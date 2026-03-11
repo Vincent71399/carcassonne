@@ -193,17 +193,42 @@ function App() {
 
     const halfW = wSize.width / 2;
     const halfH = wSize.height / 2;
-    const extraRoom = 2000; // Allow 2000px of extra panning space in any direction
+    
+    // We want exactly one full tile visible at the edges
+    const marginX = 100 * curZoom;
+    const marginY = 100 * curZoom;
+    // On mobile, the hand panel sits at the bottom instead of floating. 
+    // It's about ~220px tall in terms of padding + tile size + button heights.
+    const mobileBottomUIOffset = (wSize.width < 768) ? 220 : 0;
 
-    const limitXMin = -halfW - (maxX * 100 + 50) * curZoom - extraRoom;
-    const limitXMax = halfW - (minX * 100 - 50) * curZoom + extraRoom;
-    const limitYMin = -halfH - (maxY * 100 + 50) * curZoom - extraRoom;
-    const limitYMax = halfH - (minY * 100 - 50) * curZoom + extraRoom;
+    let limitXMin = -halfW - (maxX * 100 + 50) * curZoom + marginX;
+    let limitXMax = halfW - (minX * 100 - 50) * curZoom - marginX;
+    let limitYMin = -halfH - (maxY * 100 + 50) * curZoom + marginY;
+    let limitYMax = halfH - (minY * 100 - 50) * curZoom - marginY - mobileBottomUIOffset;
+
+    // If the board is smaller than the screen padding, limits might cross
+    if (limitXMin > limitXMax) {
+      const mid = (limitXMin + limitXMax) / 2;
+      limitXMin = mid;
+      limitXMax = mid;
+    }
+    if (limitYMin > limitYMax) {
+      const mid = (limitYMin + limitYMax) / 2;
+      limitYMin = mid;
+      limitYMax = mid;
+    }
 
     return {
       x: Math.min(Math.max(newPan.x, limitXMin), limitXMax),
       y: Math.min(Math.max(newPan.y, limitYMin), limitYMax)
     };
+  };
+
+  const handleSetPanBounded = (updater: { x: number, y: number } | ((p: { x: number, y: number }) => { x: number, y: number })) => {
+    setPan(prevPan => {
+      const nextPan = typeof updater === 'function' ? updater(prevPan) : updater;
+      return clampPan(nextPan);
+    });
   };
 
 
@@ -800,7 +825,7 @@ function App() {
       <Board
         state={gameState}
         pan={pan}
-        setPan={setPan}
+        setPan={handleSetPanBounded}
         zoom={zoom}
         setZoom={setZoom}
         focusTarget={computedFocusTarget}
