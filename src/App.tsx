@@ -47,50 +47,67 @@ const SCORING_CSS = `
     to { opacity: 1; transform: translate(-50%, 0); }
 }
 
-@keyframes bannerPulse {
+  @keyframes bannerPulse {
     0%, 100% { transform: translate(-50%, 0) scale(1); }
     50% { transform: translate(-50%, 0) scale(1.02); }
-}
+  }
+  
+  .thinking-banner {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(8px);
+      padding: 12px 24px;
+      border-radius: 50px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+      z-index: 2000;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border: 1.5px solid var(--player-color-faint, rgba(25, 118, 210, 0.3));
+      animation: bannerFadeIn 0.4s ease-out forwards, bannerPulse 2s infinite ease-in-out;
+      pointer-events: none;
+      transition: all 0.3s ease;
+  }
+  
+  .thinking-banner-text {
+      color: var(--player-color, #1976d2);
+      font-weight: 600;
+      font-size: 16px;
+      font-family: sans-serif;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+  }
+  
+  .spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid var(--player-color-faint, rgba(25, 118, 210, 0.1));
+      border-top: 2px solid var(--player-color, #1976d2);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+  }
+  
+  @keyframes spin {
+      to { transform: rotate(360deg); }
+  }
 
-.thinking-banner {
-    position: fixed;
-    top: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(8px);
-    padding: 12px 24px;
-    border-radius: 50px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.15);
-    z-index: 2000;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    border: 1.5px solid var(--player-color-faint, rgba(25, 118, 210, 0.3));
-    animation: bannerFadeIn 0.4s ease-out forwards, bannerPulse 2s infinite ease-in-out;
-    pointer-events: none;
-}
-
-.thinking-banner-text {
-    color: var(--player-color, #1976d2);
-    font-weight: 600;
-    font-size: 16px;
-    font-family: sans-serif;
-    letter-spacing: 0.5px;
-}
-
-.spinner {
-    width: 18px;
-    height: 18px;
-    border: 2px solid var(--player-color-faint, rgba(25, 118, 210, 0.1));
-    border-top: 2px solid var(--player-color, #1976d2);
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-    to { transform: rotate(360deg); }
-}
+  @media (max-width: 600px) {
+      .thinking-banner {
+          top: 15px;
+          padding: 8px 16px;
+          gap: 8px;
+      }
+      .thinking-banner-text {
+          font-size: 14px;
+      }
+      .spinner {
+          width: 14px;
+          height: 14px;
+      }
+  }
 `;
 
 const AUDIO_MAP = {
