@@ -44,6 +44,7 @@
         "placeMeeplePrompt": "点击板块上的位置放置随从",
         "cancelTile": "取消放置",
         "continue": "继续",
+        "discardTile": "丢弃板块",
         "skipMeeple": "跳过 (不放随从)",
         "playerWins": "玩家 {{name}} 获胜！",
         "tie": "平局",

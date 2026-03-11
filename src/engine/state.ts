@@ -1,6 +1,6 @@
 import type { GameState, TileDefinition, PlayerId, PlayerType, MeepleType, ScoreUpdate, PlacedMeeple, PlacedTile } from './types';
 import { generateDeck } from './tiles';
-import { isValidPlacement } from './board';
+import { isValidPlacement, hasAnyValidPlacement } from './board';
 import { checkAndScoreFeatures, scoreEndGame } from './scoring';
 import { AI_EXPERIMENT_MODE } from './constants';
 import {
@@ -97,6 +97,22 @@ export function placeTile(
     hand.splice(handIndex, 1);
     state.turnPhase = 'PlaceMeeple';
     state.recentTilePosition = { x, y };
+    return true;
+}
+
+export function discardTile(
+    state: GameState,
+    playerId: PlayerId,
+    handIndex: number
+): boolean {
+    if (playerId !== state.players[state.currentPlayerIndex]) return false;
+    if (state.turnPhase !== 'DiscardTile') return false;
+
+    const hand = state.hands[playerId];
+    if (handIndex < 0 || handIndex >= hand.length) return false;
+
+    hand.splice(handIndex, 1);
+    advanceTurn(state);
     return true;
 }
 
@@ -207,9 +223,22 @@ export function advanceTurn(state: GameState) {
     const totalCardsLeft = Object.values(state.hands).reduce((s, h) => s + h.length, 0) + state.deck.length;
     if (totalCardsLeft === 0) { _startEndGameQueue(state); return; }
 
-    state.turnPhase = 'PlaceTile';
     state.recentTilePosition = null;
     state.currentPlayerIndex = (state.currentPlayerIndex + 1) % state.players.length;
+
+    // Check if the NEW current player has ANY playable tiles
+    const nextPlayerId = state.players[state.currentPlayerIndex];
+    const playerHand = state.hands[nextPlayerId];
+    if (playerHand.length > 0) {
+        const hasPlayable = playerHand.some(tile => hasAnyValidPlacement(state.board, tile));
+        if (!hasPlayable) {
+            state.turnPhase = 'DiscardTile';
+        } else {
+            state.turnPhase = 'PlaceTile';
+        }
+    } else {
+        state.turnPhase = 'PlaceTile';
+    }
 }
 
 // ─── Public turn functions ────────────────────────────────────────────────────

@@ -14,6 +14,7 @@ interface HandProps {
     currentRotation: number;
     onSelect: (index: number) => void;
     onRotate: () => void;
+    onDiscard?: (index: number) => void;
     isMobile?: boolean;
 }
 
@@ -25,6 +26,7 @@ export const Hand: React.FC<HandProps> = ({
     currentRotation,
     onSelect,
     onRotate,
+    onDiscard,
     isMobile = false
 }) => {
     const { t } = useTranslation();
@@ -90,22 +92,42 @@ export const Hand: React.FC<HandProps> = ({
                     />
                 ))}
             </div>
-            <button
-                onClick={onRotate}
-                disabled={!canRotate}
-                style={{
-                    padding: '10px 20px',
-                    backgroundColor: canRotate ? '#1976d2' : '#ccc',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '8px',
-                    fontWeight: 'bold',
-                    cursor: canRotate ? 'pointer' : 'not-allowed',
-                    boxShadow: '0 4px 10px rgba(0,0,0,0.2)'
-                }}
-            >
-                {t('game.rotateSelected')}
-            </button>
+            <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                    onClick={onRotate}
+                    disabled={!canRotate}
+                    style={{
+                        padding: '10px 20px',
+                        backgroundColor: canRotate ? '#1976d2' : '#ccc',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '8px',
+                        fontWeight: 'bold',
+                        cursor: canRotate ? 'pointer' : 'not-allowed',
+                        boxShadow: '0 4px 10px rgba(0,0,0,0.2)'
+                    }}
+                >
+                    {t('game.rotateSelected')}
+                </button>
+                {state.turnPhase === 'DiscardTile' && (
+                    <button
+                        onClick={() => selectedIndex !== -1 && onDiscard?.(selectedIndex)}
+                        disabled={selectedIndex === -1}
+                        style={{
+                            padding: '10px 20px',
+                            backgroundColor: selectedIndex !== -1 ? '#d32f2f' : '#ccc',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '8px',
+                            fontWeight: 'bold',
+                            cursor: selectedIndex !== -1 ? 'pointer' : 'not-allowed',
+                            boxShadow: '0 4px 10px rgba(0,0,0,0.2)'
+                        }}
+                    >
+                        {t('game.discardTile')}
+                    </button>
+                )}
+            </div>
         </div>
     );
 };

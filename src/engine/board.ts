@@ -122,3 +122,15 @@ export function getValidPlacements(
 
     return validSpots;
 }
+
+// Helper to check if a tile has ANY valid placement on the board in ANY rotation
+export function hasAnyValidPlacement(
+    board: Record<string, PlacedTile>,
+    tileDef: TileDefinition
+): boolean {
+    for (let rotation = 0; rotation < 4; rotation++) {
+        const placements = getValidPlacements(board, tileDef, rotation);
+        if (placements.length > 0) return true;
+    }
+    return false;
+}

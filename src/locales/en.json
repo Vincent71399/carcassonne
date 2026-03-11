@@ -44,6 +44,7 @@
         "placeMeeplePrompt": "Click a spot on the tile to place a meeple",
         "cancelTile": "Cancel Tile",
         "continue": "Continue",
+        "discardTile": "Discard",
         "skipMeeple": "Skip (No Meeple)",
         "playerWins": "Player {{name}} Wins!",
         "tie": "Tie",

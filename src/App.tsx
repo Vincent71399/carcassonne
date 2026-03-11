@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Board } from './components/Board';
 import { Hand } from './components/Hand';
 import { DeckViewer } from './components/DeckViewer';
-import { createInitialState, placeTile, placeMeeple, skipMeeple, finishScoring, advanceTurn } from './engine/state';
+import { createInitialState, placeTile, discardTile, placeMeeple, skipMeeple, finishScoring, advanceTurn } from './engine/state';
 import { calculateBestAIMove } from './engine/ai';
 import { PLAYER_COLORS, FEATURE_COLORS, UI_COLORS, DEBUG_MODE, AI_EXPERIMENT_MODE } from './engine/constants';
 import { getValidPlacements } from './engine/board';
@@ -510,6 +510,16 @@ function App() {
     }
   };
 
+  const handleDiscardTile = (index: number) => {
+    if (!gameState) return;
+    const newState: GameState = JSON.parse(JSON.stringify(gameState));
+    const success = discardTile(newState, currentPlayer, index);
+    if (success) {
+      setGameState(newState);
+      setSelectedHandIndex(-1);
+    }
+  };
+
   // PLAYER_COLORS is now imported globally
 
   return (
@@ -915,6 +925,7 @@ function App() {
                   setRotation(0);
                 }}
                 onRotate={() => setRotation(r => (r + 1) % 4)}
+                onDiscard={handleDiscardTile}
                 isMobile={useRetractableUI}
               />
             </div>
