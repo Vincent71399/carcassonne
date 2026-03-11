@@ -123,8 +123,9 @@ function App() {
 
   // Layout states for mobile/iPad
   const [isIPad, setIsIPad] = useState(typeof window !== 'undefined' ? (/Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 0) : false);
-  const useRetractableUI = isMobile || isIPad;
-  const isScoreboardRetractable = isMobile;
+  const [isIPhone, setIsIPhone] = useState(typeof window !== 'undefined' ? /iPhone/i.test(navigator.userAgent) : false);
+  const useRetractableUI = isMobile || isIPad || isIPhone;
+  const isScoreboardRetractable = isMobile || isIPhone;
   const [isScoreboardExpanded, setIsScoreboardExpanded] = useState(!isScoreboardRetractable);
   const [isHandExpanded, setIsHandExpanded] = useState(true);
 
@@ -203,20 +204,22 @@ function App() {
     const handleResize = () => {
       const mobile = window.innerWidth < 768;
       const iPad = checkIPad();
-      const currentRetractable = mobile || iPad;
+      const iPhone = /iPhone/i.test(navigator.userAgent);
+      const currentRetractable = mobile || iPad || iPhone;
       const prevRetractable = prevMobile || prevIPad;
 
       setIsMobile(mobile);
       setIsIPad(iPad);
+      setIsIPhone(iPhone);
       setWindowSize({ width: window.innerWidth, height: window.innerHeight });
 
       if (!currentRetractable) {
         setIsScoreboardExpanded(true);
         setIsHandExpanded(true);
       } else if (!prevRetractable) {
-        // Just switched to mobile/iPad
-        setIsScoreboardExpanded(!mobile); // persistent on iPad, retracted on mobile
-        setIsHandExpanded(true); // default open on both
+        // Just switched to mobile/iPad/iPhone
+        setIsScoreboardExpanded(!mobile && !iPhone); // persistent on iPad, retracted on mobile/iPhone
+        setIsHandExpanded(true); // default open on all
       }
       prevMobile = mobile;
       prevIPad = iPad;
@@ -225,43 +228,34 @@ function App() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Fullscreen effect for mobile/iPad
+  // Fullscreen effect: ONLY for Android (per user request to hide/disable on iOS)
   useEffect(() => {
-    const isMobileOrIPad = isMobile || isIPad;
-
-    if (isMobileOrIPad) {
+    const isAndroid = /Android/i.test(navigator.userAgent);
+    
+    if (isAndroid) {
       if (gameState) {
         const doc = window.document.documentElement as VendorElement;
         const requestFullScreen = doc.requestFullscreen || doc.mozRequestFullScreen || doc.webkitRequestFullScreen || doc.msRequestFullScreen;
 
         if (requestFullScreen) {
-          // Blur ALL inputs to ensure keyboard is dismissed and iPadOS knows we are done typing
           document.querySelectorAll('input, textarea').forEach(el => (el as HTMLElement).blur());
-
-          // Delay the fullscreen request slightly to allow the keyboard to dismiss
           setTimeout(() => {
             requestFullScreen.call(doc).catch((err: unknown) => {
-              const message = err instanceof Error ? err.message : String(err);
-              const name = err instanceof Error ? err.name : 'Error';
-              console.warn(`Error attempting to enable full-screen mode: ${message} (${name})`);
+              console.warn("Fullscreen attempt failed:", err);
             });
           }, 300);
         }
       } else {
-        // Exit fullscreen when returning to start screen
         const doc = window.document as VendorDocument;
         const exitFullScreen = doc.exitFullscreen || doc.mozCancelFullScreen || doc.webkitExitFullscreen || doc.msExitFullscreen;
-
         if (exitFullScreen && doc.fullscreenElement) {
           exitFullScreen.call(doc).catch((err: unknown) => {
-            const message = err instanceof Error ? err.message : String(err);
-            const name = err instanceof Error ? err.name : 'Error';
-            console.warn(`Error attempting to exit full-screen mode: ${message} (${name})`);
+            console.warn("Exit fullscreen failed:", err);
           });
         }
       }
     }
-  }, [gameState, isMobile, isIPad]);
+  }, [gameState]);
 
   // Track fullscreen state
   useEffect(() => {
@@ -802,37 +796,7 @@ function App() {
         onFeatureClick={handlePlaceMeeple}
       />
 
-      {/* Zoom/Hand-toggle Controls (Always visible on mobile/iPad) */}
-      {
-        useRetractableUI && gameState.turnPhase !== 'PlaceMeeple' && (
-          <div style={{
-            position: 'absolute',
-            bottom: isHandExpanded ? 90 : 20,
-            right: 15,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '10px',
-            zIndex: 400,
-            transition: 'bottom 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
-          }}>
-            {/* Only Hand-toggle button remains here (removed Plus/Minus zoom) */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsHandExpanded(!isHandExpanded);
-              }}
-              style={{
-                width: 54, height: 54, borderRadius: '50%', background: 'white',
-                border: 'none', fontSize: 24, boxShadow: '0 2px 12px rgba(0,0,0,0.3)',
-                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-              }}
-            >
-              {isHandExpanded ? '❌' : '🃏'}
-            </button>
-          </div>
-        )
-      }
+
 
 
       {
@@ -917,9 +881,29 @@ function App() {
                 right: 0,
                 zIndex: 300,
                 transition: useRetractableUI ? 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)' : 'none',
-                transform: useRetractableUI && !isHandExpanded ? 'translateY(110%)' : 'translateY(0)',
-                pointerEvents: useRetractableUI && !isHandExpanded ? 'none' : 'auto'
+                transform: useRetractableUI && !isHandExpanded ? 'translateY(calc(100% - 74px))' : 'translateY(0)',
+                pointerEvents: 'auto'
               }}>
+              {/* Toggle button aligned with top edge of hand panel */}
+              {useRetractableUI && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsHandExpanded(!isHandExpanded);
+                  }}
+                  style={{
+                    position: 'absolute',
+                    top: -65,
+                    right: 15,
+                    width: 54, height: 54, borderRadius: '50%', background: 'white',
+                    border: 'none', fontSize: 24, boxShadow: '0 2px 12px rgba(0,0,0,0.2)',
+                    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    zIndex: 400
+                  }}
+                >
+                  {isHandExpanded ? '❌' : '🃏'}
+                </button>
+              )}
               <Hand
                 state={gameState}
                 playerId={currentPlayer}
@@ -1275,9 +1259,9 @@ function App() {
         </svg>
       </button>
 
-      {/* Fullscreen Button */}
+      {/* Fullscreen Button: Restricted to Android only */}
       {
-        !isFullscreen && (
+        !isFullscreen && !isIPad && !isIPhone && (
           <button
             onClick={(e) => {
               e.stopPropagation();
