@@ -175,12 +175,12 @@ function App() {
 
     const halfW = wSize.width / 2;
     const halfH = wSize.height / 2;
-    const overlap = 2000; // Allow much more freedom to move around
+    const extraRoom = 2000; // Allow 2000px of extra panning space in any direction
 
-    const limitXMin = overlap - halfW - (maxX * 100 + 50) * curZoom;
-    const limitXMax = halfW - overlap - (minX * 100 - 50) * curZoom;
-    const limitYMin = overlap - halfH - (maxY * 100 + 50) * curZoom;
-    const limitYMax = halfH - overlap - (minY * 100 - 50) * curZoom;
+    const limitXMin = -halfW - (maxX * 100 + 50) * curZoom - extraRoom;
+    const limitXMax = halfW - (minX * 100 - 50) * curZoom + extraRoom;
+    const limitYMin = -halfH - (maxY * 100 + 50) * curZoom - extraRoom;
+    const limitYMax = halfH - (minY * 100 - 50) * curZoom + extraRoom;
 
     return {
       x: Math.min(Math.max(newPan.x, limitXMin), limitXMax),
