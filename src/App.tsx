@@ -188,48 +188,6 @@ function App() {
     };
   };
 
-  const moveIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const handleStartMove = (dx: number, dy: number) => {
-    if (moveIntervalRef.current) clearInterval(moveIntervalRef.current);
-
-    // Initial move
-    setPan(p => clampPan({ x: p.x + dx, y: p.y + dy }));
-
-    // Continuous move
-    moveIntervalRef.current = setInterval(() => {
-      setPan(p => clampPan({ x: p.x + dx * 0.2 * (2 / 3), y: p.y + dy * 0.2 * (2 / 3) }));
-    }, 30);
-  };
-
-  const handleEndMove = () => {
-    if (moveIntervalRef.current) {
-      clearInterval(moveIntervalRef.current);
-      moveIntervalRef.current = null;
-    }
-  };
-
-  const zoomIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const handleStartZoom = (factor: number) => {
-    if (zoomIntervalRef.current) clearInterval(zoomIntervalRef.current);
-
-    setZoom(z => Math.min(Math.max(z * factor, 0.3), 3));
-
-    zoomIntervalRef.current = setInterval(() => {
-      // Use a smaller factor for smoother continuous zoom
-      const continuousFactor = factor > 1 ? 1.02 : 1 / 1.02;
-      setZoom(z => Math.min(Math.max(z * continuousFactor, 0.3), 3));
-    }, 30);
-  };
-
-  const handleEndZoom = () => {
-    if (zoomIntervalRef.current) {
-      clearInterval(zoomIntervalRef.current);
-      zoomIntervalRef.current = null;
-    }
-  };
-
 
   useEffect(() => {
     // Game state will be initialized by the StartScreen now instead of auto-starting.
@@ -844,83 +802,12 @@ function App() {
         onFeatureClick={handlePlaceMeeple}
       />
 
-      {/* Mobile/iPad Navigation Arrows */}
-      {
-        useRetractableUI && !isHandExpanded && gameState.turnPhase !== 'PlaceMeeple' && (!isScoreboardRetractable || !isScoreboardExpanded) && (
-          <>
-            {/* Top Arrow */}
-            <button
-              onMouseDown={(e) => { e.stopPropagation(); handleStartMove(0, 100); }}
-              onMouseUp={(e) => { e.stopPropagation(); handleEndMove(); }}
-              onMouseLeave={(e) => { e.stopPropagation(); handleEndMove(); }}
-              onTouchStart={(e) => { e.preventDefault(); e.stopPropagation(); handleStartMove(0, 100); }}
-              onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleEndMove(); }}
-              onTouchCancel={(e) => { e.preventDefault(); e.stopPropagation(); handleEndMove(); }}
-              style={{
-                position: 'absolute', top: 80, left: '50%', transform: 'translateX(-50%)',
-                width: 50, height: 50, borderRadius: '50%', background: 'rgba(255,255,255,0.8)',
-                border: 'none', fontSize: 24, boxShadow: '0 2px 8px rgba(0,0,0,0.2)', zIndex: 200, cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center'
-              }}
-            >↑</button>
-
-            {/* Bottom Arrow */}
-            <button
-              onMouseDown={(e) => { e.stopPropagation(); handleStartMove(0, -100); }}
-              onMouseUp={(e) => { e.stopPropagation(); handleEndMove(); }}
-              onMouseLeave={(e) => { e.stopPropagation(); handleEndMove(); }}
-              onTouchStart={(e) => { e.preventDefault(); e.stopPropagation(); handleStartMove(0, -100); }}
-              onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleEndMove(); }}
-              onTouchCancel={(e) => { e.preventDefault(); e.stopPropagation(); handleEndMove(); }}
-              style={{
-                position: 'absolute', bottom: 80, left: '50%', transform: 'translateX(-50%)',
-                width: 50, height: 50, borderRadius: '50%', background: 'rgba(255,255,255,0.8)',
-                border: 'none', fontSize: 24, boxShadow: '0 2px 8px rgba(0,0,0,0.2)', zIndex: 200, cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center'
-              }}
-            >↓</button>
-
-            {/* Left Arrow */}
-            <button
-              onMouseDown={(e) => { e.stopPropagation(); handleStartMove(100, 0); }}
-              onMouseUp={(e) => { e.stopPropagation(); handleEndMove(); }}
-              onMouseLeave={(e) => { e.stopPropagation(); handleEndMove(); }}
-              onTouchStart={(e) => { e.preventDefault(); e.stopPropagation(); handleStartMove(100, 0); }}
-              onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleEndMove(); }}
-              onTouchCancel={(e) => { e.preventDefault(); e.stopPropagation(); handleEndMove(); }}
-              style={{
-                position: 'absolute', top: '50%', left: 10, transform: 'translateY(-50%)',
-                width: 50, height: 50, borderRadius: '50%', background: 'rgba(255,255,255,0.8)',
-                border: 'none', fontSize: 24, boxShadow: '0 2px 8px rgba(0,0,0,0.2)', zIndex: 200, cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center'
-              }}
-            >←</button>
-
-            {/* Right Arrow */}
-            <button
-              onMouseDown={(e) => { e.stopPropagation(); handleStartMove(-100, 0); }}
-              onMouseUp={(e) => { e.stopPropagation(); handleEndMove(); }}
-              onMouseLeave={(e) => { e.stopPropagation(); handleEndMove(); }}
-              onTouchStart={(e) => { e.preventDefault(); e.stopPropagation(); handleStartMove(-100, 0); }}
-              onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleEndMove(); }}
-              onTouchCancel={(e) => { e.preventDefault(); e.stopPropagation(); handleEndMove(); }}
-              style={{
-                position: 'absolute', top: '50%', right: 10, transform: 'translateY(-50%)',
-                width: 50, height: 50, borderRadius: '50%', background: 'rgba(255,255,255,0.8)',
-                border: 'none', fontSize: 24, boxShadow: '0 2px 8px rgba(0,0,0,0.2)', zIndex: 200, cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center'
-              }}
-            >→</button>
-          </>
-        )
-      }
-
       {/* Zoom/Hand-toggle Controls (Always visible on mobile/iPad) */}
       {
         useRetractableUI && gameState.turnPhase !== 'PlaceMeeple' && (
           <div style={{
             position: 'absolute',
-            bottom: isHandExpanded ? 210 : 90,
+            bottom: isHandExpanded ? 90 : 20,
             right: 15,
             display: 'flex',
             flexDirection: 'column',
@@ -928,37 +815,7 @@ function App() {
             zIndex: 400,
             transition: 'bottom 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
           }}>
-            {/* Zoom Controls (Mobile/iPad specific rules) */}
-            {(isMobile ? (!isScoreboardExpanded && !isHandExpanded) : (isIPad && !isHandExpanded)) && (
-              <>
-                <button
-                  onMouseDown={(e) => { e.stopPropagation(); handleStartZoom(1.2); }}
-                  onMouseUp={(e) => { e.stopPropagation(); handleEndZoom(); }}
-                  onMouseLeave={(e) => { e.stopPropagation(); handleEndZoom(); }}
-                  onTouchStart={(e) => { e.preventDefault(); e.stopPropagation(); handleStartZoom(1.2); }}
-                  onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleEndZoom(); }}
-                  onTouchCancel={(e) => { e.preventDefault(); e.stopPropagation(); handleEndZoom(); }}
-                  style={{
-                    width: 54, height: 54, borderRadius: '50%', background: 'white',
-                    border: 'none', fontSize: 24, fontWeight: 'bold', boxShadow: '0 2px 12px rgba(0,0,0,0.3)',
-                    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
-                  }}
-                >+</button>
-                <button
-                  onMouseDown={(e) => { e.stopPropagation(); handleStartZoom(0.8); }}
-                  onMouseUp={(e) => { e.stopPropagation(); handleEndZoom(); }}
-                  onMouseLeave={(e) => { e.stopPropagation(); handleEndZoom(); }}
-                  onTouchStart={(e) => { e.preventDefault(); e.stopPropagation(); handleStartZoom(0.8); }}
-                  onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleEndZoom(); }}
-                  onTouchCancel={(e) => { e.preventDefault(); e.stopPropagation(); handleEndZoom(); }}
-                  style={{
-                    width: 54, height: 54, borderRadius: '50%', background: 'white',
-                    border: 'none', fontSize: 24, fontWeight: 'bold', boxShadow: '0 2px 12px rgba(0,0,0,0.3)',
-                    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
-                  }}
-                >-</button>
-              </>
-            )}
+            {/* Only Hand-toggle button remains here (removed Plus/Minus zoom) */}
             <button
               onClick={(e) => {
                 e.stopPropagation();
