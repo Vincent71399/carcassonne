@@ -13,7 +13,6 @@ interface BoardProps {
     setPan: React.Dispatch<React.SetStateAction<{ x: number, y: number }>>;
     zoom: number;
     setZoom: React.Dispatch<React.SetStateAction<number>>;
-    isMobile?: boolean;
     validPlacements?: { x: number, y: number }[];
     meepleTilePosition?: { x: number, y: number } | null;
     onTileClick?: (x: number, y: number, e: React.MouseEvent) => void;
@@ -36,11 +35,17 @@ interface BoardProps {
 }
 
 
-export const Board: React.FC<BoardProps> = ({ state, pan, setPan, zoom, setZoom, isMobile = false, validPlacements = [], meepleTilePosition, onTileClick, onPlacementClick, onFeatureClick, disabledHotspots = [], fieldConquest, allTilesInteractive = false, sandboxMode = false, onContextMenu, focusTarget }) => {
+export const Board: React.FC<BoardProps> = ({ state, pan, setPan, zoom, setZoom, validPlacements = [], meepleTilePosition, onTileClick, onPlacementClick, onFeatureClick, disabledHotspots = [], fieldConquest, allTilesInteractive = false, sandboxMode = false, onContextMenu, focusTarget }) => {
     const { t } = useTranslation();
     const isDraggingRef = useRef(false);
+    const dragStartedRef = useRef(false);
     const [isDragging, setIsDragging] = useState(false);
     const lastPan = useRef({ x: 0, y: 0 });
+    const startPoint = useRef({ x: 0, y: 0 });
+    const DRAG_THRESHOLD = 5; // Pixels to move before it counts as a drag
+
+    // Mobile pinch-to-zoom state
+    const lastPinchDist = useRef<number | null>(null);
 
     const handleSetPan = useCallback((updater: { x: number, y: number } | ((p: { x: number, y: number }) => { x: number, y: number })) => {
         setPan(updater);
@@ -54,25 +59,89 @@ export const Board: React.FC<BoardProps> = ({ state, pan, setPan, zoom, setZoom,
     }, [focusTarget, handleSetPan]);
 
     const handlePointerDown = (e: React.PointerEvent) => {
-        if (isMobile) return; // Disable dragging on mobile as requested
+        // Only handle mouse dragging with this. Touch dragging is handled by touch events.
+        if (e.pointerType !== 'mouse') return;
+        
         isDraggingRef.current = true;
+        dragStartedRef.current = false;
         setIsDragging(true);
         lastPan.current = { x: e.clientX, y: e.clientY };
+        startPoint.current = { x: e.clientX, y: e.clientY };
         (e.target as HTMLElement).setPointerCapture(e.pointerId);
     };
 
     const handlePointerMove = (e: React.PointerEvent) => {
-        if (!isDraggingRef.current) return;
+        if (!isDraggingRef.current || e.pointerType !== 'mouse') return;
+        
         const dx = e.clientX - lastPan.current.x;
         const dy = e.clientY - lastPan.current.y;
+        
+        // Track if we've moved enough to be considered a "drag"
+        const totalDist = Math.sqrt(Math.pow(e.clientX - startPoint.current.x, 2) + Math.pow(e.clientY - startPoint.current.y, 2));
+        if (totalDist > DRAG_THRESHOLD) {
+            dragStartedRef.current = true;
+        }
+
         handleSetPan(p => ({ x: p.x + dx, y: p.y + dy }));
         lastPan.current = { x: e.clientX, y: e.clientY };
     };
 
     const handlePointerUp = (e: React.PointerEvent) => {
+        if (e.pointerType !== 'mouse') return;
         isDraggingRef.current = false;
         setIsDragging(false);
         (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+    };
+
+    // Mobile touch handlers for better Safari support and pinch-to-zoom
+    const handleTouchStart = (e: React.TouchEvent) => {
+        if (e.touches.length === 1) {
+            const touch = e.touches[0];
+            isDraggingRef.current = true;
+            dragStartedRef.current = false;
+            setIsDragging(true);
+            lastPan.current = { x: touch.clientX, y: touch.clientY };
+            startPoint.current = { x: touch.clientX, y: touch.clientY };
+        } else if (e.touches.length === 2) {
+            // Start pinch
+            isDraggingRef.current = false;
+            setIsDragging(false);
+            lastPinchDist.current = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY
+            );
+        }
+    };
+
+    const handleTouchMove = (e: React.TouchEvent) => {
+        if (e.touches.length === 1 && isDraggingRef.current) {
+            const touch = e.touches[0];
+            const dx = touch.clientX - lastPan.current.x;
+            const dy = touch.clientY - lastPan.current.y;
+
+            const totalDist = Math.sqrt(Math.pow(touch.clientX - startPoint.current.x, 2) + Math.pow(touch.clientY - startPoint.current.y, 2));
+            if (totalDist > DRAG_THRESHOLD) {
+                dragStartedRef.current = true;
+            }
+
+            handleSetPan(p => ({ x: p.x + dx, y: p.y + dy }));
+            lastPan.current = { x: touch.clientX, y: touch.clientY };
+        } else if (e.touches.length === 2 && lastPinchDist.current !== null) {
+            const dist = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY
+            );
+            
+            const zoomFactor = dist / lastPinchDist.current;
+            setZoom(z => Math.min(Math.max(z * zoomFactor, 0.3), 3));
+            lastPinchDist.current = dist;
+        }
+    };
+
+    const handleTouchEnd = () => {
+        isDraggingRef.current = false;
+        setIsDragging(false);
+        lastPinchDist.current = null;
     };
 
     const handleWheel = (e: React.WheelEvent) => {
@@ -91,11 +160,16 @@ export const Board: React.FC<BoardProps> = ({ state, pan, setPan, zoom, setZoom,
                 overflow: 'hidden',
                 backgroundColor: '#f0e6d2',
                 cursor: isDragging ? 'grabbing' : 'grab',
-                position: 'relative'
+                position: 'relative',
+                touchAction: 'none' // Prevent browser gestures
             }}
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            onTouchCancel={handleTouchEnd}
             onWheel={handleWheel}
         >
             <div
@@ -134,6 +208,7 @@ export const Board: React.FC<BoardProps> = ({ state, pan, setPan, zoom, setZoom,
                                 top: placed.y * 100 - 50
                             }}
                             onClick={(e) => {
+                                if (dragStartedRef.current) return; // Don't click if we were dragging
                                 e.stopPropagation();
                                 onTileClick?.(placed.x, placed.y, e);
                             }}
@@ -259,6 +334,7 @@ export const Board: React.FC<BoardProps> = ({ state, pan, setPan, zoom, setZoom,
                                 backfaceVisibility: 'hidden'
                             }}
                             onClick={(e) => {
+                                if (dragStartedRef.current) return; // Don't click if we were dragging
                                 e.stopPropagation();
                                 onPlacementClick?.(pos.x, pos.y);
                             }}

@@ -175,7 +175,7 @@ function App() {
 
     const halfW = wSize.width / 2;
     const halfH = wSize.height / 2;
-    const overlap = 50;
+    const overlap = 2000; // Allow much more freedom to move around
 
     const limitXMin = overlap - halfW - (maxX * 100 + 50) * curZoom;
     const limitXMax = halfW - overlap - (minX * 100 - 50) * curZoom;
@@ -824,7 +824,6 @@ function App() {
         setPan={setPan}
         zoom={zoom}
         setZoom={setZoom}
-        isMobile={isMobile}
         focusTarget={computedFocusTarget}
         validPlacements={gameState.turnPhase === 'PlaceTile' ? validPlacements : []}
         meepleTilePosition={
