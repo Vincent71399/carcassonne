@@ -4,7 +4,7 @@ import { getValidPlacements } from './board';
 import { AI_CONSTANTS, AI_CONSTANTS_EXPERIMENT } from './aiConstants';
 import { evaluateAllActions, type ActionImpact } from './aiEvaluators';
 import * as experimental from './aiEvaluators_experiment';
-import { evaluateReturnedMeeples } from './aiEvaluators_experiment';
+import { evaluateReturnedMeeples, createAITurnContext, type AITurnContext } from './aiEvaluators_experiment';
 import { getOccupiedFeaturesOnTile } from './features';
 
 export interface AIMove {
@@ -25,10 +25,12 @@ export function calculateBestAIMove(state: GameState, aiPlayerId: PlayerId): AIM
     let bestMove: AIMove | null = null;
     let bestScore = -Infinity;
 
+    const context = createAITurnContext(state.board, aiPlayerId, state.players);
+
     for (let i = 0; i < currentHand.length; i++) {
         const tile = currentHand[i];
         // The Computer AI always evaluates at 0-ply (just greedy current placement)
-        const scoredMoves = getScoredMoves(state, aiPlayerId, tile, i);
+        const scoredMoves = getScoredMoves(state, aiPlayerId, tile, i, context);
         
         if (scoredMoves.length > 0) {
             const topMove = scoredMoves[0];
@@ -86,17 +88,18 @@ function calculateWeightedScore(
     simTile: PlacedTile,
     aiPlayerId: PlayerId,
     meepleFeatureId: string | null,
-    weights: AIWeights
+    weights: AIWeights,
+    context?: AITurnContext
 ): number {
     const players = state.players;
     const opponentIds = players.filter(id => id !== aiPlayerId);
 
     // Categories from evaluators
     const complete = experimental.evaluateGainScoreComplete(simBoard, x, y, simTile, players);
-    const cityInProgress = experimental.evaluateGainScoreCity_InProgress(state.board, simBoard, x, y, players);
-    const roadInProgress = experimental.evaluateGainScoreRoad_InProgress(state.board, simBoard, x, y, players);
-    const monasteryInProgress = experimental.evaluateGainScoreMonastery_InProgress(state.board, simBoard, x, y, players);
-    const field = experimental.evaluateGainScoreField(state.board, simBoard, players);
+    const cityInProgress = experimental.evaluateGainScoreCity_InProgress(state.board, simBoard, x, y, players, context);
+    const roadInProgress = experimental.evaluateGainScoreRoad_InProgress(state.board, simBoard, x, y, players, context);
+    const monasteryInProgress = experimental.evaluateGainScoreMonastery_InProgress(state.board, simBoard, x, y, players, context);
+    const field = experimental.evaluateGainScoreField(state.board, simBoard, x, y, players, context);
 
     // Meeple usage (approximate: only for active player)
     // We count a simple delta: -1 if meeple placed, +X if any features were completed.
@@ -112,11 +115,11 @@ function calculateWeightedScore(
     // experimental.evaluateMeepleUsage is quite sophisticated about "weights".
     const meepleUsageScore = experimental.evaluateMeepleUsage(countBefore, countAfter);
 
-    const cityAttack = experimental.evaluateCityAttack(simBoard, aiPlayerId, players, { x, y }, state.hands[aiPlayerId], state.deck);
-    const roadAttack = experimental.evaluateRoadAttack(simBoard, aiPlayerId, players, { x, y }, state.hands[aiPlayerId], state.deck);
-    const fieldAttack = experimental.evaluateFieldAttack(simBoard, aiPlayerId, players, { x, y }, state.hands[aiPlayerId], state.deck);
+    const cityAttack = experimental.evaluateCityAttack(simBoard, aiPlayerId, players, { x, y }, state.hands[aiPlayerId], state.deck, context);
+    const roadAttack = experimental.evaluateRoadAttack(simBoard, aiPlayerId, players, { x, y }, state.hands[aiPlayerId], state.deck, context);
+    const fieldAttack = experimental.evaluateFieldAttack(simBoard, aiPlayerId, players, { x, y }, state.hands[aiPlayerId], state.deck, context);
 
-    const cityOpenEdgeDelta = experimental.evaluateCityOpenEdgeDelta(state.board, simBoard, players);
+    const cityOpenEdgeDelta = experimental.evaluateCityOpenEdgeDelta(state.board, simBoard, x, y, players);
 
     // game_end_factor scales from FIELD_SCORE_INITIAL_MULTIPLIER (at game start)
     // to 1.0 (when deck is empty).
@@ -198,7 +201,8 @@ export function getScoredMoves(
     state: GameState,
     activePlayerId: PlayerId,
     tileDef: TileDefinition,
-    handIndex: number
+    handIndex: number,
+    context?: AITurnContext
 ): ScoredMove[] {
     const scoredMoves: ScoredMove[] = [];
     const aiType = state.playerTypes[activePlayerId];
@@ -218,7 +222,7 @@ export function getScoredMoves(
 
             // 1) Evaluate Placement WITHOUT a Meeple
             const scoreNoMeeple = weights
-                ? calculateWeightedScore(state, simBoard, placement.x, placement.y, simTile, activePlayerId, null, weights)
+                ? calculateWeightedScore(state, simBoard, placement.x, placement.y, simTile, activePlayerId, null, weights, context)
                 : calculateFinalScore(evaluateAllActions(state, simBoard, placement.x, placement.y, simTile, activePlayerId, null));
 
             scoredMoves.push({
@@ -244,7 +248,7 @@ export function getScoredMoves(
                         simTile.meeples.push({ meeple: { id: 'sim-meeple', playerId: activePlayerId, type: 'standard' }, featureId: fId });
 
                         const scoreWithMeeple = weights
-                            ? calculateWeightedScore(state, simBoard, placement.x, placement.y, simTile, activePlayerId, fId, weights)
+                            ? calculateWeightedScore(state, simBoard, placement.x, placement.y, simTile, activePlayerId, fId, weights, context)
                             : calculateFinalScore(evaluateAllActions(state, simBoard, placement.x, placement.y, simTile, activePlayerId, fId)) + AI_CONSTANTS.NOOB.MEEPLE_PLACEMENT_BONUS;
 
                         simTile.meeples.pop();

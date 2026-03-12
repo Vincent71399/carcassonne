@@ -286,12 +286,12 @@ export function endTurn(state: GameState) {
             cityInProgress: evaluateGainScoreCity_InProgress(boardBeforeMove, state.board, x, y, state.players),
             roadInProgress: evaluateGainScoreRoad_InProgress(boardBeforeMove, state.board, x, y, state.players),
             monasteryInProgress: evaluateGainScoreMonastery_InProgress(boardBeforeMove, state.board, x, y, state.players),
-            field: evaluateGainScoreField(boardBeforeMove, state.board, state.players),
+            field: evaluateGainScoreField(boardBeforeMove, state.board, x, y, state.players),
             meepleUsage,
             cityAttack: evaluateCityAttack(state.board, playerId, state.players, { x, y }, state.hands[playerId], state.deck),
             roadAttack: evaluateRoadAttack(state.board, playerId, state.players, { x, y }, state.hands[playerId], state.deck),
             fieldAttack: evaluateFieldAttack(state.board, playerId, state.players, { x, y }, state.hands[playerId], state.deck),
-            cityOpenEdgeDelta: evaluateCityOpenEdgeDelta(boardBeforeMove, state.board, state.players)
+            cityOpenEdgeDelta: evaluateCityOpenEdgeDelta(boardBeforeMove, state.board, x, y, state.players)
         };
     }
 

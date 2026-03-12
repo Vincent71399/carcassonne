@@ -4,13 +4,107 @@ import { TILES_MAP } from './tiles';
 import { AI_CONSTANTS_EXPERIMENT } from './aiConstants';
 import { isValidPlacement, rotateEdges } from './board';
 
+export interface AITurnContext {
+    targetCities: FeatureEvaluation[];
+    targetRoads: FeatureEvaluation[];
+    targetFields: FeatureEvaluation[];
+    attackerAlreadyControlledCities: Record<PlayerId, Set<string>>;
+    baseCityInProgress: Record<PlayerId | 'neutral', number>;
+    baseRoadInProgress: Record<PlayerId | 'neutral', number>;
+    baseMonasteryInProgress: Record<PlayerId | 'neutral', number>;
+    baseFieldScore: Record<PlayerId | 'neutral', number>;
+}
+
+export function createAITurnContext(
+    board: GameState['board'],
+    aiPlayerId: PlayerId,
+    allPlayerIds: PlayerId[]
+): AITurnContext {
+    const targetCities: FeatureEvaluation[] = [];
+    const targetRoads: FeatureEvaluation[] = [];
+    const targetFields: FeatureEvaluation[] = [];
+    const attackerAlreadyControlledCities: Record<PlayerId, Set<string>> = {};
+    allPlayerIds.forEach(pid => attackerAlreadyControlledCities[pid] = new Set<string>());
+
+    const scoredCities = new Set<string>();
+    const scoredRoads = new Set<string>();
+    const scoredFields = new Set<string>();
+
+    for (const tileKey of Object.keys(board)) {
+        const tile = board[tileKey];
+        const def = TILES_MAP[tile.typeId];
+
+        if (def?.cityConnections) {
+            def.cityConnections.forEach((_, idx) => {
+                const ev = evaluateFeature(board, tile.x, tile.y, 'city', idx);
+                if (ev.isComplete) return;
+                const key = ev.components.map(c => `${c.tileX},${c.tileY},${c.featureId}`).sort().join('|');
+                if (scoredCities.has(key)) return;
+                scoredCities.add(key);
+
+                const ownership = getFeatureOwnership(ev, board);
+                if (getFeatureWinners(ownership).some(w => w !== 'neutral' && w !== aiPlayerId)) {
+                    targetCities.push(ev);
+                }
+            });
+        }
+
+        if (def?.roadConnections) {
+            def.roadConnections.forEach((_, idx) => {
+                const ev = evaluateFeature(board, tile.x, tile.y, 'road', idx);
+                if (ev.isComplete) return;
+                const key = ev.components.map(c => `${c.tileX},${c.tileY},${c.featureId}`).sort().join('|');
+                if (scoredRoads.has(key)) return;
+                scoredRoads.add(key);
+
+                const ownership = getFeatureOwnership(ev, board);
+                if (getFeatureWinners(ownership).some(w => w !== 'neutral' && w !== aiPlayerId)) {
+                    targetRoads.push(ev);
+                }
+            });
+        }
+
+        if (def?.fieldConnections) {
+            def.fieldConnections.forEach((_, idx) => {
+                const ev = evaluateFeature(board, tile.x, tile.y, 'field', idx);
+                const key = ev.components.map(c => `${c.tileX},${c.tileY},${c.featureId}`).sort().join('|');
+                if (scoredFields.has(key)) return;
+                scoredFields.add(key);
+
+                const ownership = getFeatureOwnership(ev, board);
+                
+                allPlayerIds.forEach(pid => {
+                    if (ownership[pid] > 0) {
+                        getFieldCities(ev, board).forEach(c => attackerAlreadyControlledCities[pid].add(c));
+                    }
+                });
+
+                if (getFeatureWinners(ownership).some(w => w !== 'neutral' && w !== aiPlayerId)) {
+                    targetFields.push(ev);
+                }
+            });
+        }
+    }
+
+    const baseCityInProgress = calculateTotalInProgress(board, allPlayerIds, 'city');
+    const baseRoadInProgress = calculateTotalInProgress(board, allPlayerIds, 'road');
+    const baseMonasteryInProgress = calculateTotalInProgress(board, allPlayerIds, 'monastery');
+    const baseFieldScore = calculateFieldScore(board, allPlayerIds);
+
+    return { 
+        targetCities, targetRoads, targetFields, attackerAlreadyControlledCities,
+        baseCityInProgress, baseRoadInProgress, baseMonasteryInProgress, baseFieldScore
+    };
+}
+
 export function evaluateFieldAttack(
     board: GameState['board'],
     attackerId: PlayerId,
     allPlayerIds: PlayerId[],
     currentPos: { x: number, y: number },
     hand: GameState['hands'][PlayerId],
-    deck: GameState['deck']
+    deck: GameState['deck'],
+    context?: AITurnContext
 ): Record<PlayerId | 'neutral', number> {
     const results: Record<PlayerId | 'neutral', number> = { neutral: 0 } as Record<PlayerId | 'neutral', number>;
     allPlayerIds.forEach(pid => { results[pid] = 0; });
@@ -18,50 +112,9 @@ export function evaluateFieldAttack(
     const attackerTile = board[`${currentPos.x},${currentPos.y}`];
     if (!attackerTile) return results;
 
-    // 1. Identify all cities already controlled by the attacker across the whole board
-    const attackerAlreadyControlledCities = new Set<string>();
-    const scoredFieldsForAttacker = new Set<string>();
-    for (const tileKey of Object.keys(board)) {
-        const tile = board[tileKey];
-        const def = TILES_MAP[tile.typeId];
-        if (!def?.fieldConnections) continue;
-        def.fieldConnections.forEach((_, fieldIdx) => {
-            const ev = evaluateFeature(board, tile.x, tile.y, 'field', fieldIdx);
-            const fieldKey = ev.components.map(c => `${c.tileX},${c.tileY},${c.featureId}`).sort().join('|');
-            if (scoredFieldsForAttacker.has(fieldKey)) return;
-            scoredFieldsForAttacker.add(fieldKey);
-
-            const ownership = getFeatureOwnership(ev, board);
-            if (ownership[attackerId] > 0) {
-                getFieldCities(ev, board).forEach(c => attackerAlreadyControlledCities.add(c));
-            }
-        });
-    }
-
-    // 2. Identify Target Fields (Opponent owned)
-    const targetFields: FeatureEvaluation[] = [];
-    const scoredTargets = new Set<string>();
-
-    for (const tileKey of Object.keys(board)) {
-        const tile = board[tileKey];
-        const def = TILES_MAP[tile.typeId];
-        if (!def?.fieldConnections) continue;
-
-        def.fieldConnections.forEach((_, fieldIdx) => {
-            const ev = evaluateFeature(board, tile.x, tile.y, 'field', fieldIdx);
-            const featureKey = ev.components.map(c => `${c.tileX},${c.tileY},${c.featureId}`).sort().join('|');
-            if (scoredTargets.has(featureKey)) return;
-            scoredTargets.add(featureKey);
-
-            const ownership = getFeatureOwnership(ev, board);
-            const winners = getFeatureWinners(ownership);
-            const isOpponentOwned = winners.some(w => w !== 'neutral' && w !== attackerId);
-
-            if (isOpponentOwned) {
-                targetFields.push(ev);
-            }
-        });
-    }
+    const effectiveContext = context || createAITurnContext(board, attackerId, allPlayerIds);
+    const targetFields: FeatureEvaluation[] = effectiveContext.targetFields;
+    const attackerAlreadyControlledCities: Set<string> = effectiveContext.attackerAlreadyControlledCities[attackerId] || new Set<string>();
 
     if (targetFields.length === 0) return results;
 
@@ -345,11 +398,12 @@ export function evaluateGainScoreComplete(
 export function evaluateGainScoreCity_InProgress(
     originalBoard: GameState['board'],
     simBoard: GameState['board'],
-    _x: number,
-    _y: number,
-    players: PlayerId[]
+    x: number,
+    y: number,
+    players: PlayerId[],
+    context?: AITurnContext
 ): Record<PlayerId | 'neutral', number> {
-    return calculateInProgressDelta(originalBoard, simBoard, _x, _y, 'city', players);
+    return calculateInProgressDelta(originalBoard, simBoard, x, y, 'city', players, context);
 }
 
 /**
@@ -360,9 +414,10 @@ export function evaluateGainScoreRoad_InProgress(
     simBoard: GameState['board'],
     x: number,
     y: number,
-    players: PlayerId[]
+    players: PlayerId[],
+    context?: AITurnContext
 ): Record<PlayerId | 'neutral', number> {
-    return calculateInProgressDelta(originalBoard, simBoard, x, y, 'road', players);
+    return calculateInProgressDelta(originalBoard, simBoard, x, y, 'road', players, context);
 }
 
 /**
@@ -373,9 +428,10 @@ export function evaluateGainScoreMonastery_InProgress(
     simBoard: GameState['board'],
     _x: number,
     _y: number,
-    players: PlayerId[]
+    players: PlayerId[],
+    context?: AITurnContext
 ): Record<PlayerId | 'neutral', number> {
-    const scoreBefore = calculateTotalInProgress(originalBoard, players, 'monastery');
+    const scoreBefore = context ? context.baseMonasteryInProgress : calculateTotalInProgress(originalBoard, players, 'monastery');
     const scoreAfter = calculateTotalInProgress(simBoard, players, 'monastery');
 
     const results: Record<PlayerId | 'neutral', number> = { neutral: scoreAfter.neutral - scoreBefore.neutral };
@@ -394,7 +450,8 @@ export function evaluateCityAttack(
     players: PlayerId[],
     lastMovePos: { x: number, y: number },
     attackerHand: GameState['hands'][PlayerId],
-    deck: GameState['deck']
+    deck: GameState['deck'],
+    context?: AITurnContext
 ): Record<PlayerId | 'neutral', number> {
     const results: Record<PlayerId | 'neutral', number> = { neutral: 0 };
     players.forEach(p => { results[p] = 0; });
@@ -403,33 +460,8 @@ export function evaluateCityAttack(
     const attackerTile = board[`${ax},${ay}`];
     if (!attackerTile) return results;
 
-    // 1. Identify Target Cities (Opponent owned, in-progress)
-    const targetCities: FeatureEvaluation[] = [];
-    const scoredTargets = new Set<string>();
-
-    for (const tileKey of Object.keys(board)) {
-        const tile = board[tileKey];
-        const def = TILES_MAP[tile.typeId];
-        if (!def?.cityConnections) continue;
-
-        def.cityConnections.forEach((_, cityIdx) => {
-            const ev = evaluateFeature(board, tile.x, tile.y, 'city', cityIdx);
-            if (ev.isComplete) return;
-
-            const featureKey = ev.components.map(c => `${c.tileX},${c.tileY},${c.featureId}`).sort().join('|');
-            if (scoredTargets.has(featureKey)) return;
-            scoredTargets.add(featureKey);
-
-            const ownership = getFeatureOwnership(ev, board);
-            const winners = getFeatureWinners(ownership);
-
-            // Is it owned by an opponent?
-            const isOpponentOwned = winners.some(w => w !== 'neutral' && w !== attackerId);
-            if (isOpponentOwned) {
-                targetCities.push(ev);
-            }
-        });
-    }
+    const effectiveContext = context || createAITurnContext(board, attackerId, players);
+    const targetCities: FeatureEvaluation[] = effectiveContext.targetCities;
 
     if (targetCities.length === 0) return results;
 
@@ -554,7 +586,8 @@ export function evaluateRoadAttack(
     players: PlayerId[],
     lastMovePos: { x: number, y: number },
     attackerHand: GameState['hands'][PlayerId],
-    deck: GameState['deck']
+    deck: GameState['deck'],
+    context?: AITurnContext
 ): Record<PlayerId | 'neutral', number> {
     const results: Record<PlayerId | 'neutral', number> = { neutral: 0 };
     players.forEach(p => { results[p] = 0; });
@@ -563,32 +596,8 @@ export function evaluateRoadAttack(
     const attackerTile = board[`${ax},${ay}`];
     if (!attackerTile) return results;
 
-    // 1. Identify Target Roads (Opponent owned, in-progress)
-    const targetRoads: FeatureEvaluation[] = [];
-    const scoredTargets = new Set<string>();
-
-    for (const tileKey of Object.keys(board)) {
-        const tile = board[tileKey];
-        const def = TILES_MAP[tile.typeId];
-        if (!def?.roadConnections) continue;
-
-        def.roadConnections.forEach((_, roadIdx) => {
-            const ev = evaluateFeature(board, tile.x, tile.y, 'road', roadIdx);
-            if (ev.isComplete) return;
-
-            const featureKey = ev.components.map(c => `${c.tileX},${c.tileY},${c.featureId}`).sort().join('|');
-            if (scoredTargets.has(featureKey)) return;
-            scoredTargets.add(featureKey);
-
-            const ownership = getFeatureOwnership(ev, board);
-            const winners = getFeatureWinners(ownership);
-
-            const isOpponentOwned = winners.some(w => w !== 'neutral' && w !== attackerId);
-            if (isOpponentOwned) {
-                targetRoads.push(ev);
-            }
-        });
-    }
+    const effectiveContext = context || createAITurnContext(board, attackerId, players);
+    const targetRoads: FeatureEvaluation[] = effectiveContext.targetRoads;
 
     if (targetRoads.length === 0) return results;
 
@@ -945,9 +954,12 @@ function combination(a: number, b: number): number {
 export function evaluateGainScoreField(
     originalBoard: GameState['board'],
     simBoard: GameState['board'],
-    players: PlayerId[]
+    _x: number,
+    _y: number,
+    players: PlayerId[],
+    context?: AITurnContext
 ): Record<PlayerId | 'neutral', number> {
-    const scoreBefore = calculateFieldScore(originalBoard, players);
+    const scoreBefore = context ? context.baseFieldScore : calculateFieldScore(originalBoard, players);
     const scoreAfter = calculateFieldScore(simBoard, players);
 
     const results: Record<PlayerId | 'neutral', number> = { neutral: scoreAfter.neutral - scoreBefore.neutral };
@@ -989,9 +1001,10 @@ function calculateInProgressDelta(
     x: number,
     y: number,
     type: 'city' | 'road',
-    players: PlayerId[]
+    players: PlayerId[],
+    context?: AITurnContext
 ): Record<PlayerId | 'neutral', number> {
-    const scoreBefore = calculateTotalInProgress(originalBoard, players, type);
+    const scoreBefore = context ? (type === 'city' ? context.baseCityInProgress : context.baseRoadInProgress) : calculateTotalInProgress(originalBoard, players, type);
     const scoreAfter = calculateTotalInProgress(simBoard, players, type);
 
     const results: Record<PlayerId | 'neutral', number> = { neutral: scoreAfter.neutral - scoreBefore.neutral };
@@ -1217,22 +1230,24 @@ export function evaluateReturnedMeeples(
 export function evaluateCityOpenEdgeDelta(
     boardBefore: GameState['board'],
     boardAfter: GameState['board'],
+    x: number,
+    y: number,
     players: PlayerId[]
 ): Record<PlayerId | 'neutral', number> {
     const scoredFeaturesAfter = new Set<string>();
     const results: Record<PlayerId | 'neutral', number> = { neutral: 0 };
     players.forEach(p => { results[p] = 0; });
 
-    for (const tileKey of Object.keys(boardAfter)) {
-        const tile = boardAfter[tileKey];
-        const def = TILES_MAP[tile.typeId];
-        if (!def || !def.cityConnections) continue;
+    const tile = boardAfter[`${x},${y}`];
+    if (!tile) return results;
+    const def = TILES_MAP[tile.typeId];
+    if (!def || !def.cityConnections) return results;
 
-        for (let i = 0; i < def.cityConnections.length; i++) {
-            const evAfter = evaluateFeature(boardAfter, tile.x, tile.y, 'city', i);
-            const featureKey = evAfter.components.map(c => `${c.tileX},${c.tileY},${c.featureId}`).sort().join('|');
-            if (scoredFeaturesAfter.has(featureKey)) continue;
-            scoredFeaturesAfter.add(featureKey);
+    for (let i = 0; i < def.cityConnections.length; i++) {
+        const evAfter = evaluateFeature(boardAfter, tile.x, tile.y, 'city', i);
+        const featureKey = evAfter.components.map(c => `${c.tileX},${c.tileY},${c.featureId}`).sort().join('|');
+        if (scoredFeaturesAfter.has(featureKey)) continue;
+        scoredFeaturesAfter.add(featureKey);
 
             if (evAfter.isComplete || evAfter.components.length < 2) continue;
 
@@ -1244,6 +1259,7 @@ export function evaluateCityOpenEdgeDelta(
             const totalBeforeUniqueVacancies = new Set<string>();
 
             evAfter.components.forEach(c => {
+                if (c.tileX === x && c.tileY === y) return;
                 if (boardBefore[`${c.tileX},${c.tileY}`]) {
                     const evBefore = evaluateFeature(boardBefore, c.tileX, c.tileY, 'city', parseInt(c.featureId.split('-')[1], 10));
                     const bKey = evBefore.components.map(bc => `${bc.tileX},${bc.tileY},${bc.featureId}`).sort().join('|');
@@ -1264,7 +1280,6 @@ export function evaluateCityOpenEdgeDelta(
                 });
             }
         }
-    }
     return results;
 }
 

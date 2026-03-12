@@ -86,7 +86,7 @@ describe('AI Evaluators Experiment - Final Suite', () => {
         addMeeple(board, 0, 0, p1, 'field-0');
         addTile(board, 0, 1, 'G', 2, 'c1');
         addTile(board, 0, 2, 'G', 0, 'c2');
-        const gain = evaluateGainScoreField({}, board, players);
+        const gain = evaluateGainScoreField({}, board, 0, 0, players);
         expect(gain[p1]).toBe(3);
     });
 
