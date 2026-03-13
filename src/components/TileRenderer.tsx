@@ -419,11 +419,11 @@ const TILE_FIELD_REGIONS: Record<string, { id: string, x: number, y: number }[]>
         { id: 'field-0', x: 50, y: 50 },
     ],
     'L': [ // C-R-F-R
-        { id: 'field-0', x: 50, y: 35 },
+        { id: 'field-0', x: 25, y: 30 },
         { id: 'field-1', x: 50, y: 85 }
     ],
     'M': [ // C-R-R-R cross
-        { id: 'field-0', x: 50, y: 35 },
+        { id: 'field-0', x: 25, y: 30 },
         { id: 'field-1', x: 85, y: 85 },
         { id: 'field-2', x: 15, y: 85 }
     ],
