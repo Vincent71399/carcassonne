@@ -55,9 +55,9 @@ export const Board: React.FC<BoardProps> = ({ state, pan, setPan, zoom, setZoom,
     useEffect(() => {
         if (focusTarget) {
             // Offset the y-position upward by 80px to clear the bottom UI panel (hand/controls)
-            handleSetPan({ x: -focusTarget.x * 100, y: -focusTarget.y * 100 - 80 });
+            handleSetPan({ x: -focusTarget.x * 100 * zoom, y: -focusTarget.y * 100 * zoom - 80 });
         }
-    }, [focusTarget, handleSetPan]);
+    }, [focusTarget, handleSetPan, zoom]);
 
     const handlePointerDown = (e: React.PointerEvent) => {
         // Only handle mouse dragging with this. Touch dragging is handled by touch events.
