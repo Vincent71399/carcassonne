@@ -1025,7 +1025,7 @@ function App() {
         )
       }
       {/* Quit Button (placed here to overlay everything) */}
-      {!showGallery && (
+      {!showGallery && gameState?.turnPhase !== 'GameOver' && (
         <button
         className="quit-button"
         style={{
@@ -1062,7 +1062,7 @@ function App() {
 
       {/* Fullscreen Button: Restricted to Android only */}
       {
-        !showGallery && !isFullscreen && !isIPad && !isIPhone && (
+        !showGallery && gameState?.turnPhase !== 'GameOver' && !isFullscreen && !isIPad && !isIPhone && (
           <button
             onClick={(e) => {
               e.stopPropagation();

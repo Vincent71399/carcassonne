@@ -30,26 +30,19 @@ export const GameEndPage: React.FC<GameEndPageProps> = ({
   if (showBoardPostGame) {
     return (
       <div style={{
-        position: 'absolute', top: 0, left: 0, right: 0,
-        background: 'linear-gradient(90deg, rgba(18,18,40,0.96), rgba(40,15,60,0.96))',
-        zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '10px 24px', boxShadow: '0 2px 16px rgba(0,0,0,0.5)'
+        position: 'absolute', bottom: '4vh', left: '50%', transform: 'translateX(-50%)',
+        zIndex: 999, display: 'flex', justifyContent: 'center'
       }}>
-        <span style={{ color: '#ffd700', fontWeight: 'bold', fontSize: 18 }}>
-          {winners.length === 1 ? t('game.playerWins', { name: gameState.playerNames[winners[0]] || winners[0] }) : t('game.tie')}
-          {gameState.players.map(p => (
-            <span key={p} style={{ marginLeft: 16, fontSize: 14, color: PLAYER_COLORS[p] || '#fff' }}>
-              P{p}: {gameState.scores[p] || 0}pts
-            </span>
-          ))}
-        </span>
         <button
           onClick={() => setShowBoardPostGame(false)}
           style={{
-            padding: '7px 18px', background: 'rgba(255,215,0,0.15)', color: '#ffd700',
-            border: '1px solid #ffd70055', borderRadius: 8, cursor: 'pointer',
-            fontWeight: 'bold', fontSize: 13
+            padding: '12px 24px', background: 'rgba(18,18,40,0.95)', color: '#ffd700',
+            border: '2px solid #ffd700', borderRadius: 12, cursor: 'pointer',
+            fontWeight: 'bold', fontSize: 16, boxShadow: '0 4px 16px rgba(0,0,0,0.6)',
+            transition: 'all 0.2s'
           }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(40,15,60,0.95)'; e.currentTarget.style.transform = 'scale(1.05)'; }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'rgba(18,18,40,0.95)'; e.currentTarget.style.transform = 'scale(1)'; }}
         >
           ← {t('game.backToResults')}
         </button>
