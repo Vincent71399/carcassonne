@@ -273,35 +273,6 @@ function App() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Fullscreen effect: ONLY for Android (per user request to hide/disable on iOS)
-  // useEffect(() => {
-  //   const isAndroid = /Android/i.test(navigator.userAgent);
-  //
-  //   if (isAndroid) {
-  //     if (gameState) {
-  //       const doc = window.document.documentElement as VendorElement;
-  //       const requestFullScreen = doc.requestFullscreen || doc.mozRequestFullScreen || doc.webkitRequestFullScreen || doc.msRequestFullScreen;
-  //
-  //       if (requestFullScreen) {
-  //         document.querySelectorAll('input, textarea').forEach(el => (el as HTMLElement).blur());
-  //         setTimeout(() => {
-  //           requestFullScreen.call(doc).catch((err: unknown) => {
-  //             console.warn("Fullscreen attempt failed:", err);
-  //           });
-  //         }, 300);
-  //       }
-  //     } else {
-  //       const doc = window.document as VendorDocument;
-  //       const exitFullScreen = doc.exitFullscreen || doc.mozCancelFullScreen || doc.webkitExitFullscreen || doc.msExitFullscreen;
-  //       if (exitFullScreen && doc.fullscreenElement) {
-  //         exitFullScreen.call(doc).catch((err: unknown) => {
-  //           console.warn("Exit fullscreen failed:", err);
-  //         });
-  //       }
-  //     }
-  //   }
-  // }, [gameState]);
-
   // Track fullscreen state
   useEffect(() => {
     const handleFullscreenChange = () => {
