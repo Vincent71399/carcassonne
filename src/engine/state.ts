@@ -2,7 +2,7 @@ import type { GameState, TileDefinition, PlayerId, PlayerType, MeepleType, Score
 import { generateDeck } from './tiles';
 import { isValidPlacement, hasAnyValidPlacement } from './board';
 import { checkAndScoreFeatures, scoreEndGame } from './scoring';
-import { AI_EXPERIMENT_MODE } from './constants';
+import { AI_EXPERIMENT_MODE } from '../utils/debug.ts';
 import {
     evaluateGainScoreComplete,
     evaluateGainScoreCity_InProgress,

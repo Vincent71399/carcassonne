@@ -1,6 +1,6 @@
 import React, { useState, useId } from 'react';
 import type { TileDefinition, PlacedTile, EdgeDirection } from '../engine/types';
-import { PLAYER_COLORS, FEATURE_COLORS } from '../engine/constants';
+import { PLAYER_COLORS, FEATURE_COLORS } from '../utils/styles.ts';
 
 interface FeatureHotspot {
     id: string;

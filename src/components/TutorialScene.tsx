@@ -2,7 +2,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { TileRenderer } from './TileRenderer';
 import { TILES_MAP } from '../engine/tiles';
-import { PLAYER_COLORS } from '../engine/constants';
+import { PLAYER_COLORS } from '../utils/styles.ts';
 import { getCityMaskPaths, getRoadMaskPaths } from '../engine/fieldConquest';
 import type { PlayerId, PlacedTile } from '../engine/types';
 

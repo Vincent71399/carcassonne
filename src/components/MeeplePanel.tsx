@@ -1,7 +1,7 @@
 import React from 'react';
 import type { GameState, PlayerId, TileDefinition, EdgeDirection } from '../engine/types';
 import { TILES_MAP } from '../engine/tiles';
-import { FEATURE_COLORS } from '../engine/constants';
+import { FEATURE_COLORS } from '../utils/styles.ts';
 
 interface MeeplePanelProps {
     state: GameState;

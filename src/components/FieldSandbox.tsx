@@ -6,7 +6,7 @@ import { getValidPlacements } from '../engine/board';
 import { scoreEndGame } from '../engine/scoring';
 import { computeFieldConquest } from '../engine/fieldConquest';
 import { TileRenderer } from './TileRenderer';
-import { PLAYER_COLORS } from '../engine/constants';
+import { PLAYER_COLORS } from '../utils/styles.ts';
 
 export const FieldSandbox: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     // Sandbox specific state

@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import type { PlayerType } from '../engine/types';
-import { DEBUG_MODE } from '../engine/constants';
 import { TutorialModal } from './TutorialModal';
 import { useTranslation } from 'react-i18next';
 
@@ -263,35 +262,33 @@ export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame 
                 </div>
 
                 {/* Mode Selection */}
-                {DEBUG_MODE && (
-                    <div style={{ display: 'flex', gap: '10px', background: 'rgba(0,0,0,0.2)', padding: '5px', borderRadius: '8px' }}>
-                        <button
-                            style={{
-                                flex: 1, padding: '10px', borderRadius: '6px', border: 'none',
-                                background: mode === 'local' ? '#3498db' : 'transparent',
-                                color: mode === 'local' ? 'white' : '#ccc',
-                                cursor: 'pointer', fontWeight: mode === 'local' ? 'bold' : 'normal',
-                                transition: 'all 0.2s'
-                            }}
-                            onClick={() => setMode('local')}
-                        >
-                            {t('startScreen.localGame')}
-                        </button>
-                        <button
-                            style={{
-                                flex: 1, padding: '10px', borderRadius: '6px', border: 'none',
-                                background: 'transparent',
-                                color: '#888',
-                                cursor: 'not-allowed',
-                                position: 'relative'
-                            }}
-                            title={t('startScreen.comingSoon')}
-                        >
-                            {t('startScreen.onlineGame')}
-                            <span style={{ position: 'absolute', top: 2, right: 4, fontSize: '10px', background: '#e74c3c', color: 'white', padding: '2px 4px', borderRadius: '4px' }}>WIP</span>
-                        </button>
-                    </div>
-                )}
+                <div style={{ display: 'flex', gap: '10px', background: 'rgba(0,0,0,0.2)', padding: '5px', borderRadius: '8px' }}>
+                    <button
+                        style={{
+                            flex: 1, padding: '10px', borderRadius: '6px', border: 'none',
+                            background: mode === 'local' ? '#3498db' : 'transparent',
+                            color: mode === 'local' ? 'white' : '#ccc',
+                            cursor: 'pointer', fontWeight: mode === 'local' ? 'bold' : 'normal',
+                            transition: 'all 0.2s'
+                        }}
+                        onClick={() => setMode('local')}
+                    >
+                        {t('startScreen.localGame')}
+                    </button>
+                    <button
+                        style={{
+                            flex: 1, padding: '10px', borderRadius: '6px', border: 'none',
+                            background: 'transparent',
+                            color: '#888',
+                            cursor: 'not-allowed',
+                            position: 'relative'
+                        }}
+                        title={t('startScreen.comingSoon')}
+                    >
+                        {t('startScreen.onlineGame')}
+                        <span style={{ position: 'absolute', top: 2, right: 4, fontSize: '10px', background: '#e74c3c', color: 'white', padding: '2px 4px', borderRadius: '4px' }}>WIP</span>
+                    </button>
+                </div>
 
                 {/* Player Settings */}
                 {mode === 'local' && (

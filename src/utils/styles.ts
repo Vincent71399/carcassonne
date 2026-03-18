@@ -5,9 +5,6 @@ export const PLAYER_COLORS: Record<number, string> = {
     4: '#fbc02d', // Yellow
 };
 
-export const DEBUG_MODE = false;
-export const AI_EXPERIMENT_MODE = false;
-
 export const FEATURE_COLORS = {
     city: '#cda87a',
     cityShield: '#1e88e5', // Distinct blue for city shields

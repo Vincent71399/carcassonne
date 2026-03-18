@@ -4,7 +4,7 @@ import type { GameState, PlayerId, PlacedTile } from '../engine/types';
 import { TileRenderer } from './TileRenderer';
 import { TILES_MAP } from '../engine/tiles';
 import { getCityMaskPaths, getRoadMaskPaths } from '../engine/fieldConquest';
-import { PLAYER_COLORS } from '../engine/constants';
+import { PLAYER_COLORS } from '../utils/styles.ts';
 
 
 interface BoardProps {
