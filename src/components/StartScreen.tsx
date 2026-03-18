@@ -62,6 +62,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame 
     const { t, i18n } = useTranslation();
     const { user, logout } = useAuth();
     const [showTutorial, setShowTutorial] = useState(false);
+    const [isProfileExpanded, setIsProfileExpanded] = useState(false);
     const [authModalIntent, setAuthModalIntent] = useState<'online' | 'general' | null>(null);
     const [mode, setMode] = useState<'local' | 'online'>(() => {
         const saved = localStorage.getItem('carcassonne_mode');
@@ -240,31 +241,53 @@ export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame 
             </div>
 
             {/* User Profile (Top Left) */}
-            <div style={{
-                position: 'absolute', top: '20px', left: '20px', zIndex: 100,
-                display: 'flex', alignItems: 'center', gap: '10px',
-                background: 'rgba(255, 255, 255, 0.15)', padding: '8px 16px',
-                borderRadius: '30px', backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(255,255,255,0.2)'
-            }}>
+            <div 
+                onClick={() => {
+                    if (isMobile && user) {
+                        setIsProfileExpanded(!isProfileExpanded);
+                    }
+                }}
+                style={{
+                    position: 'absolute', top: '20px', left: '20px', zIndex: 100,
+                    display: 'flex', alignItems: 'center', gap: '10px',
+                    background: 'rgba(255, 255, 255, 0.15)', 
+                    padding: (isMobile && user && !isProfileExpanded) ? '8px' : '8px 16px',
+                    borderRadius: '30px', backdropFilter: 'blur(10px)',
+                    border: '1px solid rgba(255,255,255,0.2)',
+                    cursor: (isMobile && user) ? 'pointer' : 'default',
+                    transition: 'all 0.3s ease',
+                    overflow: 'hidden'
+                }}
+            >
                 {user ? (
                     <>
                         {user.photoURL ? (
-                            <img src={user.photoURL} alt="Profile" style={{ width: 32, height: 32, borderRadius: '50%' }} />
+                            <img src={user.photoURL} alt="Profile" style={{ width: 32, height: 32, borderRadius: '50%', flexShrink: 0 }} />
                         ) : (
-                            <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#3498db', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
+                            <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#3498db', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', flexShrink: 0 }}>
                                 {(user.displayName || user.email || '?').charAt(0).toUpperCase()}
                             </div>
                         )}
-                        <span style={{ fontSize: '14px', fontWeight: '600' }}>
-                            {user.displayName || user.email?.split('@')[0]}
-                        </span>
-                        <button onClick={() => { setMode('local'); logout(); }} style={{ marginLeft: 10, background: 'transparent', border: '1px solid rgba(255,255,255,0.4)', color: 'white', borderRadius: 15, padding: '4px 10px', fontSize: '12px', cursor: 'pointer' }}>
-                            {t('auth.logout', 'Logout')}
-                        </button>
+                        {(!isMobile || isProfileExpanded) && (
+                            <>
+                                <span style={{ fontSize: '14px', fontWeight: '600', whiteSpace: 'nowrap' }}>
+                                    {user.displayName || user.email?.split('@')[0]}
+                                </span>
+                                <button 
+                                    onClick={(e) => { 
+                                        e.stopPropagation();
+                                        setMode('local'); 
+                                        logout(); 
+                                    }} 
+                                    style={{ marginLeft: 10, background: 'transparent', border: '1px solid rgba(255,255,255,0.4)', color: 'white', borderRadius: 15, padding: '4px 10px', fontSize: '12px', cursor: 'pointer', flexShrink: 0 }}
+                                >
+                                    {t('auth.logout', 'Logout')}
+                                </button>
+                            </>
+                        )}
                     </>
                 ) : (
-                    <button onClick={() => setAuthModalIntent('general')} style={{ background: '#3498db', border: 'none', color: 'white', borderRadius: 15, padding: '6px 16px', fontSize: '14px', cursor: 'pointer', fontWeight: 'bold' }}>
+                    <button onClick={() => setAuthModalIntent('general')} style={{ background: '#3498db', border: 'none', color: 'white', borderRadius: 15, padding: '6px 16px', fontSize: '14px', cursor: 'pointer', fontWeight: 'bold', flexShrink: 0 }}>
                         {t('auth.login', 'Login')}
                     </button>
                 )}
