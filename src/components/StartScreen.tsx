@@ -120,11 +120,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame 
         localStorage.setItem('carcassonne_types', JSON.stringify(types));
     }, [mode, playerCount, names, types]);
 
-    useEffect(() => {
-        if (!user) {
-            setMode(prev => prev === 'online' ? 'local' : prev);
-        }
-    }, [user]);
+
 
     const handleTypeChange = (pId: number, newType: PlayerType) => {
         setTypes(prev => ({ ...prev, [pId]: newType }));
@@ -263,7 +259,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame 
                         <span style={{ fontSize: '14px', fontWeight: '600' }}>
                             {user.displayName || user.email?.split('@')[0]}
                         </span>
-                        <button onClick={logout} style={{ marginLeft: 10, background: 'transparent', border: '1px solid rgba(255,255,255,0.4)', color: 'white', borderRadius: 15, padding: '4px 10px', fontSize: '12px', cursor: 'pointer' }}>
+                        <button onClick={() => { setMode('local'); logout(); }} style={{ marginLeft: 10, background: 'transparent', border: '1px solid rgba(255,255,255,0.4)', color: 'white', borderRadius: 15, padding: '4px 10px', fontSize: '12px', cursor: 'pointer' }}>
                             {t('auth.logout', 'Logout')}
                         </button>
                     </>

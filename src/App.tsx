@@ -315,7 +315,7 @@ function App() {
       }
     });
     return () => unsub();
-  }, [onlineConfig, user]);
+  }, [onlineConfig, user, t]);
 
   // Push game state to remote when turn advances or game finishes
   useEffect(() => {
