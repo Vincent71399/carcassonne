@@ -183,8 +183,8 @@ export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame 
                         changed = true;
                     }
                 } else {
-                    const oldMarker = oldLang === 'en' ? '(AI)' : '(电脑)';
-                    const newMarker = newLang === 'en' ? '(AI)' : '(电脑)';
+                    const oldMarker = i18n.t('startScreen.aiMarker', { lng: oldLang });
+                    const newMarker = i18n.t('startScreen.aiMarker', { lng: newLang });
                     if (name.endsWith(oldMarker)) {
                         next[id] = name.replace(oldMarker, newMarker);
                         changed = true;

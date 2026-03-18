@@ -11,6 +11,8 @@ interface LobbyProps {
     onBack: () => void;
 }
 
+const alertMappedId = (idx: number) => (idx + 1) as PlayerId;
+
 export const Lobby: React.FC<LobbyProps> = ({ onStartGame, onBack }) => {
     const { user } = useAuth();
     const { t } = useTranslation();
@@ -47,18 +49,17 @@ export const Lobby: React.FC<LobbyProps> = ({ onStartGame, onBack }) => {
         }
     }, [view]);
 
-    const alertMappedId = (idx: number) => (idx + 1) as PlayerId;
-
+    
     useEffect(() => {
         if (currentRoomId) {
             const unsub = listenToRoom(currentRoomId, (room) => {
                 if (!room) {
-                    setError('Room was closed');
+                    setError(t('lobby.roomClosed'));
                     setView('list');
                     setCurrentRoomId(null);
                     setCurrentRoom(null);
                 } else if (room.status === 'finished') {
-                    setError('The host has closed the room.');
+                    setError(t('lobby.hostClosedRoom'));
                     setView('list');
                     setCurrentRoomId(null);
                     setCurrentRoom(null);
@@ -82,7 +83,7 @@ export const Lobby: React.FC<LobbyProps> = ({ onStartGame, onBack }) => {
             });
             return () => unsub();
         }
-    }, [currentRoomId, onStartGame, user?.uid]);
+    }, [currentRoomId, onStartGame, user?.uid, t]);
 
     const handleCreateRoom = async () => {
         if (!user) return;
@@ -92,7 +93,7 @@ export const Lobby: React.FC<LobbyProps> = ({ onStartGame, onBack }) => {
             setCurrentRoomId(id);
             setView('room');
         } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : 'An error occurred');
+            setError(err instanceof Error ? err.message : t('lobby.errorOccurred'));
         }
     };
 
@@ -114,7 +115,7 @@ export const Lobby: React.FC<LobbyProps> = ({ onStartGame, onBack }) => {
             setSelectedRoomToJoin(null);
             setJoinPasscode('');
         } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : 'An error occurred');
+            setError(err instanceof Error ? err.message : t('lobby.errorOccurred'));
         }
     };
 
@@ -124,7 +125,7 @@ export const Lobby: React.FC<LobbyProps> = ({ onStartGame, onBack }) => {
             setError(null);
             await addAiToRoom(currentRoomId, `AI ${difficulty}`, difficulty);
         } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : 'An error occurred');
+            setError(err instanceof Error ? err.message : t('lobby.errorOccurred'));
         }
     };
 
@@ -143,7 +144,7 @@ export const Lobby: React.FC<LobbyProps> = ({ onStartGame, onBack }) => {
             await startGameInRoom(currentRoomId, initialState);
             // The onSnapshot listener will trigger onStartGame for everyone including creator
         } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : 'An error occurred');
+            setError(err instanceof Error ? err.message : t('lobby.errorOccurred'));
         }
     };
 
@@ -156,29 +157,29 @@ export const Lobby: React.FC<LobbyProps> = ({ onStartGame, onBack }) => {
             {view === 'list' && (
                 <>
                     <h2 style={{ margin: 0, fontSize: '20px', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        {t('lobby.rooms', 'Game Rooms')}
-                        <button onClick={onBack} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.4)', color: 'white', padding: '4px 8px', borderRadius: '6px', cursor: 'pointer' }}>Back</button>
+                        {t('lobby.rooms')}
+                        <button onClick={onBack} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.4)', color: 'white', padding: '4px 8px', borderRadius: '6px', cursor: 'pointer' }}>{t('lobby.back')}</button>
                     </h2>
                     
                     <button onClick={() => setView('create')} style={{ padding: '12px', background: '#2ecc71', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>
-                        {t('lobby.createRoom', '+ Create New Room')}
+                        {t('lobby.createRoom')}
                     </button>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '300px', overflowY: 'auto' }}>
                         {rooms.length === 0 ? (
-                            <div style={{ textAlign: 'center', color: '#aaa', padding: '20px' }}>No rooms available. Create one!</div>
+                            <div style={{ textAlign: 'center', color: '#aaa', padding: '20px' }}>{t('lobby.noRooms')}</div>
                         ) : rooms.map(room => (
                             <div key={room.id} style={{ background: 'rgba(0,0,0,0.3)', padding: '12px', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <div>
-                                    <div style={{ fontWeight: 'bold', color: 'white' }}>{room.creatorName}'s Room {room.passcode && '🔒'}</div>
-                                    <div style={{ fontSize: '12px', color: '#ccc' }}>{room.players.length} / {room.playerCount} Players</div>
+                                    <div style={{ fontWeight: 'bold', color: 'white' }}>{t('lobby.roomName', { name: room.creatorName })} {room.passcode && '🔒'}</div>
+                                    <div style={{ fontSize: '12px', color: '#ccc' }}>{t('lobby.playersCount', { current: room.players.length, total: room.playerCount })}</div>
                                 </div>
                                 <button 
                                     onClick={() => handleJoinClick(room)}
                                     disabled={room.players.length >= room.playerCount}
                                     style={{ padding: '8px 16px', background: room.players.length >= room.playerCount ? '#555' : '#3498db', color: 'white', border: 'none', borderRadius: '6px', cursor: room.players.length >= room.playerCount ? 'not-allowed' : 'pointer' }}
                                 >
-                                    {room.players.length >= room.playerCount ? 'Full' : 'Join'}
+                                    {room.players.length >= room.playerCount ? t('lobby.full') : t('lobby.join')}
                                 </button>
                             </div>
                         ))}
@@ -187,11 +188,11 @@ export const Lobby: React.FC<LobbyProps> = ({ onStartGame, onBack }) => {
                     {selectedRoomToJoin && (
                         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <div style={{ background: '#2c3e50', padding: '20px', borderRadius: '12px', width: '300px', color: 'white' }}>
-                                <h3>Enter Passcode</h3>
+                                <h3>{t('lobby.enterPasscode')}</h3>
                                 <input type="password" value={joinPasscode} onChange={e => setJoinPasscode(e.target.value)} style={{ width: '100%', padding: '10px', marginBottom: '15px', boxSizing: 'border-box' }} />
                                 <div style={{ display: 'flex', gap: '10px' }}>
-                                    <button onClick={() => submitJoin(selectedRoomToJoin.id, joinPasscode)} style={{ flex: 1, padding: '10px', background: '#3498db', border: 'none', color: 'white', borderRadius: '6px', cursor: 'pointer' }}>Join</button>
-                                    <button onClick={() => setSelectedRoomToJoin(null)} style={{ flex: 1, padding: '10px', background: 'transparent', border: '1px solid #ccc', color: '#ccc', borderRadius: '6px', cursor: 'pointer' }}>Cancel</button>
+                                    <button onClick={() => submitJoin(selectedRoomToJoin.id, joinPasscode)} style={{ flex: 1, padding: '10px', background: '#3498db', border: 'none', color: 'white', borderRadius: '6px', cursor: 'pointer' }}>{t('lobby.join')}</button>
+                                    <button onClick={() => setSelectedRoomToJoin(null)} style={{ flex: 1, padding: '10px', background: 'transparent', border: '1px solid #ccc', color: '#ccc', borderRadius: '6px', cursor: 'pointer' }}>{t('lobby.cancel')}</button>
                                 </div>
                             </div>
                         </div>
@@ -201,20 +202,20 @@ export const Lobby: React.FC<LobbyProps> = ({ onStartGame, onBack }) => {
 
             {view === 'create' && (
                 <>
-                    <h2 style={{ margin: 0, fontSize: '20px', color: '#fff' }}>Create Room</h2>
-                    <label style={{ color: '#eee', fontSize: '14px' }}>Player Count</label>
+                    <h2 style={{ margin: 0, fontSize: '20px', color: '#fff' }}>{t('lobby.createRoomTitle')}</h2>
+                    <label style={{ color: '#eee', fontSize: '14px' }}>{t('lobby.playerCountLabel')}</label>
                     <div style={{ display: 'flex', gap: '10px' }}>
                         {[2, 3, 4].map(num => (
                             <button key={num} onClick={() => setCreateCount(num)} style={{ flex: 1, padding: '10px', background: createCount === num ? '#3498db' : 'rgba(0,0,0,0.3)', border: createCount === num ? 'none' : '1px solid #555', color: 'white', borderRadius: '6px', cursor: 'pointer' }}>{num}</button>
                         ))}
                     </div>
                     
-                    <label style={{ color: '#eee', fontSize: '14px', marginTop: '10px' }}>Passcode (Optional)</label>
-                    <input type="text" value={createPasscode} onChange={e => setCreatePasscode(e.target.value)} placeholder="Leave blank for public room" style={{ padding: '12px', borderRadius: '6px', border: 'none' }} />
+                    <label style={{ color: '#eee', fontSize: '14px', marginTop: '10px' }}>{t('lobby.passcodeLabel')}</label>
+                    <input type="text" value={createPasscode} onChange={e => setCreatePasscode(e.target.value)} placeholder={t('lobby.passcodePlaceholder')} style={{ padding: '12px', borderRadius: '6px', border: 'none' }} />
 
                     <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-                        <button onClick={handleCreateRoom} style={{ flex: 2, padding: '12px', background: '#2ecc71', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Create</button>
-                        <button onClick={() => setView('list')} style={{ flex: 1, padding: '12px', background: 'transparent', color: '#ccc', border: '1px solid #ccc', borderRadius: '6px', cursor: 'pointer' }}>Cancel</button>
+                        <button onClick={handleCreateRoom} style={{ flex: 2, padding: '12px', background: '#2ecc71', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>{t('lobby.createBtn')}</button>
+                        <button onClick={() => setView('list')} style={{ flex: 1, padding: '12px', background: 'transparent', color: '#ccc', border: '1px solid #ccc', borderRadius: '6px', cursor: 'pointer' }}>{t('lobby.cancel')}</button>
                     </div>
                 </>
             )}
@@ -222,25 +223,25 @@ export const Lobby: React.FC<LobbyProps> = ({ onStartGame, onBack }) => {
             {view === 'room' && currentRoom && (
                 <>
                     <h2 style={{ margin: 0, fontSize: '20px', color: '#fff', display: 'flex', justifyContent: 'space-between' }}>
-                        Room: {currentRoom.creatorName}
+                        {t('lobby.roomTitle', { name: currentRoom.creatorName })}
                         {currentRoom.passcode && <span style={{ fontSize: '14px', background: 'rgba(0,0,0,0.5)', padding: '2px 8px', borderRadius: '4px' }}>🔒 {currentRoom.passcode}</span>}
                     </h2>
 
                     <div style={{ background: 'rgba(0,0,0,0.3)', padding: '15px', borderRadius: '8px' }}>
-                        <div style={{ marginBottom: '10px', fontWeight: 'bold', color: '#ccc' }}>Players ({currentRoom.players.length}/{currentRoom.playerCount})</div>
+                        <div style={{ marginBottom: '10px', fontWeight: 'bold', color: '#ccc' }}>{t('lobby.playersLabel', { current: currentRoom.players.length, total: currentRoom.playerCount })}</div>
                         {currentRoom.players.map((p, idx) => (
                             <div key={idx} style={{ padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.1)', color: 'white', display: 'flex', justifyContent: 'space-between' }}>
                                 <span>{p.name} {p.uid === currentRoom.creatorId && '👑'}</span>
-                                {p.isAi && <span style={{ color: '#f1c40f', fontSize: '12px' }}>AI ({p.aiDifficulty})</span>}
+                                {p.isAi && <span style={{ color: '#f1c40f', fontSize: '12px' }}>{t('lobby.aiLabel', { difficulty: p.aiDifficulty })}</span>}
                             </div>
                         ))}
                     </div>
 
                     {!isFull && currentRoom.creatorId === user?.uid && (
                         <div style={{ display: 'flex', gap: '5px', marginTop: '10px' }}>
-                            <button onClick={() => handleAddAi('ai-noob')} style={{ flex: 1, padding: '8px', background: '#34495e', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>+ AI Noob</button>
-                            <button onClick={() => handleAddAi('ai-easy')} style={{ flex: 1, padding: '8px', background: '#34495e', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>+ AI Easy</button>
-                            <button onClick={() => handleAddAi('ai-medium')} style={{ flex: 1, padding: '8px', background: '#34495e', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>+ AI Med</button>
+                            <button onClick={() => handleAddAi('ai-noob')} style={{ flex: 1, padding: '8px', background: '#34495e', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>{t('lobby.addAiNoob')}</button>
+                            <button onClick={() => handleAddAi('ai-easy')} style={{ flex: 1, padding: '8px', background: '#34495e', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>{t('lobby.addAiEasy')}</button>
+                            <button onClick={() => handleAddAi('ai-medium')} style={{ flex: 1, padding: '8px', background: '#34495e', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>{t('lobby.addAiMedium')}</button>
                         </div>
                     )}
 
@@ -250,11 +251,11 @@ export const Lobby: React.FC<LobbyProps> = ({ onStartGame, onBack }) => {
                             disabled={!isFull}
                             style={{ padding: '16px', background: isFull ? '#2ecc71' : '#555', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '18px', cursor: isFull ? 'pointer' : 'not-allowed', marginTop: '10px' }}
                         >
-                            {isFull ? 'Start Game' : 'Waiting for players...'}
+                            {isFull ? t('lobby.startGame') : t('lobby.waitingForPlayers')}
                         </button>
                     ) : (
                         <div style={{ textAlign: 'center', color: '#f1c40f', padding: '16px', marginTop: '10px' }}>
-                            Waiting for host to start the game...
+                            {t('lobby.waitingForHost')}
                         </div>
                     )}
 
@@ -265,7 +266,7 @@ export const Lobby: React.FC<LobbyProps> = ({ onStartGame, onBack }) => {
                         setView('list'); 
                         setCurrentRoomId(null); 
                     }} style={{ padding: '10px', background: 'transparent', color: '#e74c3c', border: '1px solid #e74c3c', borderRadius: '6px', cursor: 'pointer', marginTop: '10px' }}>
-                        Leave Room
+                        {t('lobby.leaveRoom')}
                     </button>
                 </>
             )}
