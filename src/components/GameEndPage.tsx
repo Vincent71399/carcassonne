@@ -62,25 +62,29 @@ export const GameEndPage: React.FC<GameEndPageProps> = ({
       position: 'absolute', inset: 0,
       background: 'linear-gradient(135deg, rgba(18,18,40,0.97), rgba(40,15,60,0.97))',
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-      zIndex: 1000, fontFamily: 'sans-serif'
+      zIndex: 1000, fontFamily: 'sans-serif', padding: '20px 10px', overflowY: 'auto'
     }}>
-      <div style={{ fontSize: 64, marginBottom: 12 }}>🏰</div>
-      <h1 style={{ color: '#ffd700', fontSize: 36, margin: '0 0 4px', textShadow: '0 2px 12px rgba(255,215,0,0.6)' }}>{t('game.gameOverTitle')}</h1>
-      <p style={{ color: '#aaa', margin: '0 0 32px', fontSize: 16 }}>{t('game.gameOverSubtitle')}</p>
+      <div style={{ fontSize: 'min(64px, 8vh)', marginBottom: '0.5vh' }}>🏰</div>
+      <h1 style={{ color: '#ffd700', fontSize: 'min(36px, 4vh)', margin: '0 0 2px', textShadow: '0 2px 12px rgba(255,215,0,0.6)', textAlign: 'center' }}>{t('game.gameOverTitle')}</h1>
+      <p style={{ color: '#aaa', margin: '0 0 16px', fontSize: 'min(16px, 2vh)', textAlign: 'center' }}>{t('game.gameOverSubtitle')}</p>
 
       {/* Winner banner */}
       <div style={{
         background: 'linear-gradient(90deg, #ffd700, #ff9800)',
-        borderRadius: 14, padding: '12px 32px', marginBottom: 28,
-        boxShadow: '0 4px 24px rgba(255,165,0,0.4)'
+        borderRadius: 14, padding: '8px 24px', marginBottom: '2vh',
+        boxShadow: '0 4px 24px rgba(255,165,0,0.4)',
+        maxWidth: '90%', textAlign: 'center'
       }}>
-        <span style={{ fontSize: 20, fontWeight: 'bold', color: '#1a1a1a' }}>
+        <span style={{ fontSize: 'min(20px, 2.5vh)', fontWeight: 'bold', color: '#1a1a1a' }}>
           {winners.length === 1 ? t('game.playerWins', { name: gameState.playerNames[winners[0]] || winners[0] }) : `${t('game.tie')}: ${winners.map(p => gameState.playerNames[p] || p).join(' & ')}`}
         </span>
       </div>
 
       {/* Final score breakdown bars */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16, width: '100%', maxWidth: 480, marginBottom: 36 }}>
+      <div style={{ 
+        display: 'flex', flexDirection: 'column', gap: '1vh', width: '100%', maxWidth: 480, 
+        marginBottom: '2vh', flexShrink: 1, minHeight: 0
+      }}>
         {(() => {
           const CATS = [
             { key: 'city' as const, label: t('game.categories.city'), color: '#c9a84c', midColor: '#e8cfa0' },
@@ -99,14 +103,14 @@ export const GameEndPage: React.FC<GameEndPageProps> = ({
                 background: 'rgba(255,255,255,0.06)',
                 borderLeft: `5px solid ${PLAYER_COLORS[pid] || '#999'}`,
                 borderRadius: '0 12px 12px 0',
-                padding: '12px 16px',
+                padding: '8px 12px',
               }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                  <span style={{ color: '#eee', fontSize: 15 }}>{medals[rank] || '  '} {gameState.playerNames[pid] || t('startScreen.playerPlaceholder', { id: pid })}</span>
-                  <span style={{ color: '#ffd700', fontWeight: 'bold', fontSize: 18 }}>{total} pts</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <span style={{ color: '#eee', fontSize: 'min(15px, 1.8vh)' }}>{medals[rank] || '  '} {gameState.playerNames[pid] || t('startScreen.playerPlaceholder', { id: pid })}</span>
+                  <span style={{ color: '#ffd700', fontWeight: 'bold', fontSize: 'min(18px, 2.2vh)' }}>{total} pts</span>
                 </div>
                 {/* Stacked bar */}
-                <div style={{ display: 'flex', height: 20, borderRadius: 6, overflow: 'hidden', background: 'rgba(0,0,0,0.3)', marginBottom: 6 }}>
+                <div style={{ display: 'flex', height: '1.8vh', minHeight: 14, borderRadius: 6, overflow: 'hidden', background: 'rgba(0,0,0,0.3)', marginBottom: 4 }}>
                   {/* Mid-game segments (lighter shade, same category colours) */}
                   {midBreakdown && CATS.map(cat => {
                     const pts = midBreakdown[cat.key] || 0;
@@ -116,7 +120,7 @@ export const GameEndPage: React.FC<GameEndPageProps> = ({
                         width: `${(pts / maxScore) * 100}%`,
                         background: cat.midColor, minWidth: 2,
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: 10, color: '#333', fontWeight: 'bold',
+                        fontSize: 9, color: '#333', fontWeight: 'bold',
                       }}>{pts > 4 ? pts : ''}</div>
                     );
                   })}
@@ -129,22 +133,22 @@ export const GameEndPage: React.FC<GameEndPageProps> = ({
                         width: `${(pts / maxScore) * 100}%`,
                         background: cat.color, minWidth: 2,
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: 10, color: '#fff', fontWeight: 'bold',
+                        fontSize: 9, color: '#fff', fontWeight: 'bold',
                       }}>{pts > 4 ? pts : ''}</div>
                     );
                   })}
                 </div>
                 {/* Legend pills */}
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                   {midBreakdown && CATS.map(cat => {
                     const pts = midBreakdown[cat.key] || 0;
                     if (pts === 0) return null;
-                    return <span key={`mid-${cat.key}`} style={{ fontSize: 11, background: cat.midColor, borderRadius: 10, padding: '2px 7px', color: '#333' }}>{t('game.midGame')} {cat.label} {pts}</span>;
+                    return <span key={`mid-${cat.key}`} style={{ fontSize: 9, background: cat.midColor, borderRadius: 10, padding: '1px 6px', color: '#333' }}>{t('game.midGame')} {cat.label} {pts}</span>;
                   })}
                   {breakdown && CATS.map(cat => {
                     const pts = breakdown[cat.key] || 0;
                     if (pts === 0) return null;
-                    return <span key={cat.key} style={{ fontSize: 11, background: cat.color, borderRadius: 10, padding: '2px 7px', color: '#fff' }}>{cat.label} {pts}</span>;
+                    return <span key={cat.key} style={{ fontSize: 9, background: cat.color, borderRadius: 10, padding: '1px 6px', color: '#fff' }}>{cat.label} {pts}</span>;
                   })}
                 </div>
               </div>
@@ -152,14 +156,14 @@ export const GameEndPage: React.FC<GameEndPageProps> = ({
           });
         })()}
       </div>
-      <div style={{ display: 'flex', gap: 16 }}>
+      <div style={{ display: 'flex', gap: '2vw', flexWrap: 'wrap', justifyContent: 'center' }}>
         <button
           onClick={() => {
             setShowBoardPostGame(true);
             setShowFieldView(true);
           }}
           style={{
-            padding: '14px 32px', fontSize: 18, fontWeight: 'bold',
+            padding: '10px 20px', fontSize: 'min(16px, 2vh)', fontWeight: 'bold',
             background: 'rgba(255,255,255,0.1)',
             color: '#ddd', border: '1px solid #555', borderRadius: 12, cursor: 'pointer',
             transition: 'all 0.15s'
@@ -167,12 +171,12 @@ export const GameEndPage: React.FC<GameEndPageProps> = ({
           onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.2)'; e.currentTarget.style.color = '#fff'; }}
           onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; e.currentTarget.style.color = '#ddd'; }}
         >
-          {t('game.viewFieldConquest')}
+          {t('game.viewBoard')}
         </button>
         <button
           onClick={handlePlayAgain}
           style={{
-            padding: '14px 48px', fontSize: 18, fontWeight: 'bold',
+            padding: '10px 30px', fontSize: 'min(18px, 2.2vh)', fontWeight: 'bold',
             background: `linear-gradient(90deg, ${UI_COLORS.primary}, ${UI_COLORS.primaryLight})`,
             color: '#fff', border: 'none', borderRadius: 12, cursor: 'pointer',
             boxShadow: '0 4px 20px rgba(33,150,243,0.5)',
@@ -186,7 +190,7 @@ export const GameEndPage: React.FC<GameEndPageProps> = ({
         <button
           onClick={handleBackToMainMenu}
           style={{
-            padding: '14px 24px', fontSize: 16, fontWeight: 'bold',
+            padding: '10px 18px', fontSize: 'min(14px, 1.8vh)', fontWeight: 'bold',
             background: 'rgba(255,255,255,0.05)',
             color: '#bbb', border: '1px solid #444', borderRadius: 12, cursor: 'pointer',
             transition: 'all 0.15s'

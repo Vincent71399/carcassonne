@@ -851,11 +851,8 @@ function App() {
         onFeatureClick={handlePlaceMeeple}
       />
 
-
-
-
       {
-        gameState.turnPhase === 'PlaceMeeple' && (() => {
+        gameState.turnPhase === 'PlaceMeeple' && gameState.playerTypes[currentPlayer] === 'human' && (() => {
           const meeplesLeft = gameState.remainingMeeples[currentPlayer]?.standard ?? 0;
           const hasNoMeeples = meeplesLeft === 0;
           return (
