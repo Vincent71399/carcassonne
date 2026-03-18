@@ -86,7 +86,8 @@
     },
     "deckViewer": {
         "title": "剩余板块",
-        "remaining": "剩余 {{count}} 块"
+        "remaining_one": "剩余 {{count}} 块",
+        "remaining_other": "剩余 {{count}} 块"
     },
     "tutorial": {
         "welcomeTitle": "欢迎来到卡卡颂",

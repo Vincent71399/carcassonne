@@ -86,7 +86,8 @@
     },
     "deckViewer": {
         "title": "Remaining Deck",
-        "remaining_one": "{{count}} tile remaining"
+        "remaining_one": "{{count}} tile remaining",
+        "remaining_other": "{{count}} tiles remaining"
     },
     "tutorial": {
         "welcomeTitle": "Welcome to Carcassonne",
