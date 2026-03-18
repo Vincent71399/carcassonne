@@ -1,7 +1,7 @@
 {
   "name": "carcassonne-3-tiles-hand",
   "private": true,
-  "version": "0.3.2",
+  "version": "0.4.0",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
@@ -15,6 +15,7 @@
     "electron:build": "npm run build && electron-builder"
   },
   "dependencies": {
+    "firebase": "^12.10.0",
     "i18next": "^25.8.14",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

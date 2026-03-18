@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import type { PlayerType } from '../engine/types';
+import { type PlayerId, type PlayerType } from '../engine/types';
 import { TutorialModal } from './TutorialModal';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '../context/AuthContext';
+import { AuthModal } from './AuthModal';
+import { Lobby } from './Lobby';
 
 interface StartScreenProps {
     isMobile: boolean;
-    onStartGame: (playerNames: Record<number, string>, playerTypes: Record<number, PlayerType>) => void;
+    onStartGame: (playerNames: Record<number, string>, playerTypes: Record<number, PlayerType>, roomId?: string, isHost?: boolean, localPlayerIds?: PlayerId[]) => void;
 }
 
 const NOOB_AI_NAMES = [
@@ -57,7 +60,9 @@ const EnglishFlag = () => (
 
 export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame }) => {
     const { t, i18n } = useTranslation();
+    const { user, logout } = useAuth();
     const [showTutorial, setShowTutorial] = useState(false);
+    const [showAuthModal, setShowAuthModal] = useState(false);
     const [mode, setMode] = useState<'local' | 'online'>(() => {
         const saved = localStorage.getItem('carcassonne_mode');
         return (saved as 'local' | 'online') || 'local';
@@ -232,6 +237,37 @@ export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame 
                 )}
             </div>
 
+            {/* User Profile (Top Left) */}
+            <div style={{
+                position: 'absolute', top: '20px', left: '20px', zIndex: 100,
+                display: 'flex', alignItems: 'center', gap: '10px',
+                background: 'rgba(255, 255, 255, 0.15)', padding: '8px 16px',
+                borderRadius: '30px', backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(255,255,255,0.2)'
+            }}>
+                {user ? (
+                    <>
+                        {user.photoURL ? (
+                            <img src={user.photoURL} alt="Profile" style={{ width: 32, height: 32, borderRadius: '50%' }} />
+                        ) : (
+                            <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#3498db', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
+                                {(user.displayName || user.email || '?').charAt(0).toUpperCase()}
+                            </div>
+                        )}
+                        <span style={{ fontSize: '14px', fontWeight: '600' }}>
+                            {user.displayName || user.email?.split('@')[0]}
+                        </span>
+                        <button onClick={logout} style={{ marginLeft: 10, background: 'transparent', border: '1px solid rgba(255,255,255,0.4)', color: 'white', borderRadius: 15, padding: '4px 10px', fontSize: '12px', cursor: 'pointer' }}>
+                            {t('auth.logout', 'Logout')}
+                        </button>
+                    </>
+                ) : (
+                    <button onClick={() => setShowAuthModal(true)} style={{ background: '#3498db', border: 'none', color: 'white', borderRadius: 15, padding: '6px 16px', fontSize: '14px', cursor: 'pointer', fontWeight: 'bold' }}>
+                        {t('auth.login', 'Login')}
+                    </button>
+                )}
+            </div>
+
             <div style={{
                 background: 'rgba(255, 255, 255, 0.1)',
                 backdropFilter: 'blur(10px)',
@@ -278,17 +314,23 @@ export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame 
                     <button
                         style={{
                             flex: 1, padding: '10px', borderRadius: '6px', border: 'none',
-                            background: 'transparent',
-                            color: '#888',
-                            cursor: 'not-allowed',
-                            position: 'relative'
+                            background: mode === 'online' ? '#3498db' : 'transparent',
+                            color: mode === 'online' ? 'white' : '#ccc',
+                            cursor: 'pointer', fontWeight: mode === 'online' ? 'bold' : 'normal',
+                            transition: 'all 0.2s',
                         }}
-                        title={t('startScreen.comingSoon')}
+                        onClick={() => {
+                            if (!user) setShowAuthModal(true);
+                            else setMode('online');
+                        }}
                     >
                         {t('startScreen.onlineGame')}
-                        <span style={{ position: 'absolute', top: 2, right: 4, fontSize: '10px', background: '#e74c3c', color: 'white', padding: '2px 4px', borderRadius: '4px' }}>WIP</span>
                     </button>
                 </div>
+
+                {mode === 'online' && (
+                    <Lobby onStartGame={onStartGame} onBack={() => setMode('local')} />
+                )}
 
                 {/* Player Settings */}
                 {mode === 'local' && (
@@ -379,28 +421,30 @@ export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame 
                     </div>
                 )}
 
-                <button
-                    onClick={handleStart}
-                    style={{
-                        padding: '16px',
-                        borderRadius: '8px',
-                        border: 'none',
-                        background: '#2ecc71',
-                        color: 'white',
-                        fontSize: '18px',
-                        fontWeight: 'bold',
-                        cursor: 'pointer',
-                        boxShadow: '0 4px 15px rgba(46, 204, 113, 0.4)',
-                        transition: 'transform 0.1s, box-shadow 0.1s',
-                        marginTop: '10px',
-                        width: '100%'
-                    }}
-                    onMouseDown={e => e.currentTarget.style.transform = 'scale(0.98)'}
-                    onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
-                    onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
-                >
-                    {t('startScreen.startGame')}
-                </button>
+                {mode === 'local' && (
+                    <button
+                        onClick={handleStart}
+                        style={{
+                            padding: '16px',
+                            borderRadius: '8px',
+                            border: 'none',
+                            background: '#2ecc71',
+                            color: 'white',
+                            fontSize: '18px',
+                            fontWeight: 'bold',
+                            cursor: 'pointer',
+                            boxShadow: '0 4px 15px rgba(46, 204, 113, 0.4)',
+                            transition: 'transform 0.1s, box-shadow 0.1s',
+                            marginTop: '10px',
+                            width: '100%'
+                        }}
+                        onMouseDown={e => e.currentTarget.style.transform = 'scale(0.98)'}
+                        onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
+                        onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                    >
+                        {t('startScreen.startGame')}
+                    </button>
+                )}
 
                 <button
                     onClick={() => setShowTutorial(true)}
@@ -424,6 +468,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame 
             </div>
 
             {showTutorial && <TutorialModal isMobile={isMobile} onClose={() => setShowTutorial(false)} />}
+            {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} />}
 
             {/* Author Credit */}
             <div style={{

@@ -16,6 +16,8 @@ import { getOccupiedFeaturesOnTile } from './engine/features';
 import { GameEndPage } from './components/GameEndPage';
 import { TileGallery } from './components/TileGallery';
 import type { GameState, PlayerId, PlayerType } from './engine/types';
+import { useAuth } from './context/AuthContext';
+import { listenToRoom, updateRoomGameState, quitActiveGame, leaveFinishedRoom } from './firebase/rooms';
 
 interface VendorDocument extends Document {
   mozCancelFullScreen?: () => Promise<void>;
@@ -149,6 +151,20 @@ function App() {
   const [isScoreboardExpanded, setIsScoreboardExpanded] = useState(!isScoreboardRetractable);
   const [isHandExpanded, setIsHandExpanded] = useState(true);
 
+  const { user } = useAuth();
+  const [onlineConfig, setOnlineConfig] = useState<{ roomId: string, isHost: boolean, localPlayerIds: PlayerId[] } | null>(null);
+  const previousPlayerIndex = useRef<number | null>(null);
+  const previousTurnPhase = useRef<GameState['turnPhase'] | null>(null);
+  const gameStateRef = useRef<GameState | null>(null);
+  const [systemMessage, setSystemMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (systemMessage) {
+        const timer = setTimeout(() => setSystemMessage(null), 5000);
+        return () => clearTimeout(timer);
+    }
+  }, [systemMessage]);
+
   // Board position and zoom (moved from Board.tsx)
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
@@ -181,6 +197,7 @@ function App() {
   const lastStateRef = useRef({ gameState, zoom, windowSize });
   useEffect(() => {
     lastStateRef.current = { gameState, zoom, windowSize };
+    gameStateRef.current = gameState;
   }, [gameState, zoom, windowSize]);
 
   const clampPan = (newPan: { x: number, y: number }) => {
@@ -238,6 +255,93 @@ function App() {
   useEffect(() => {
     // Game state will be initialized by the StartScreen now instead of auto-starting.
   }, []);
+
+  const handleStartGame = (names: Record<PlayerId, string>, types: Record<PlayerId, PlayerType>, roomId?: string, isHost?: boolean, localPlayerIds?: PlayerId[]) => {
+    const initialState = createInitialState(names, types);
+    setGameState(initialState);
+    if (roomId && user && localPlayerIds && isHost !== undefined) {
+      setOnlineConfig({ roomId, isHost, localPlayerIds });
+      // The host pushes the initial state
+      if (isHost) {
+        updateRoomGameState(roomId, initialState, user.uid);
+      }
+    } else {
+      setOnlineConfig(null);
+    }
+  };
+
+  // Check for active game on reload
+  useEffect(() => {
+    if (user && !gameState) {
+      import('./firebase/rooms').then(({ getActiveRoomForUser }) => {
+         getActiveRoomForUser(user.uid).then(room => {
+             if (room && room.status === 'playing' && room.gameState) {
+                 const localPlayerIds: PlayerId[] = [];
+                 room.players.forEach((p, idx) => {
+                     if (p.uid === user.uid) {
+                         localPlayerIds.push((idx + 1) as PlayerId);
+                     }
+                 });
+                 setOnlineConfig({ roomId: room.id, isHost: room.creatorId === user.uid, localPlayerIds });
+                 setGameState(room.gameState);
+             }
+         });
+      });
+    }
+  }, [user, gameState]);
+
+  // Listen for remote game state changes
+  useEffect(() => {
+    if (!onlineConfig || !user) return;
+    const unsub = listenToRoom(onlineConfig.roomId, (room) => {
+      if (room && room.gameState && room.lastUpdatedByUid !== user.uid) {
+        const prev = gameStateRef.current;
+        // Disconnect detection
+        if (prev) {
+            Object.keys(room.gameState.playerTypes).forEach(id => {
+                const pId = parseInt(id) as PlayerId;
+                if (prev.playerTypes[pId] === 'human' && room.gameState!.playerTypes[pId] !== 'human') {
+                    setSystemMessage(`${room.gameState!.playerNames[pId]} has left the game. AI taking over!`);
+                }
+            });
+        }
+        // Center board on opponent's newly placed tile
+        if (room.gameState.recentTilePosition) {
+          setAiFocusTarget(room.gameState.recentTilePosition);
+          setTimeout(() => setAiFocusTarget(null), 1500);
+        }
+        // Always accept state from the other player
+        setGameState(room.gameState);
+      }
+    });
+    return () => unsub();
+  }, [onlineConfig, user]);
+
+  // Push game state to remote when turn advances or game finishes
+  useEffect(() => {
+    if (!gameState) return;
+    
+    const turnChanged = previousPlayerIndex.current !== null && previousPlayerIndex.current !== gameState.currentPlayerIndex;
+    const gameJustEnded = previousTurnPhase.current !== null && previousTurnPhase.current !== 'GameOver' && gameState.turnPhase === 'GameOver';
+    const scoreStarted = previousTurnPhase.current !== 'Score' && gameState.turnPhase === 'Score';
+
+    if (turnChanged || gameJustEnded || scoreStarted) {
+       if (onlineConfig && user) {
+           const prevPlayerId = gameState.players[previousPlayerIndex.current !== null ? previousPlayerIndex.current : gameState.currentPlayerIndex];
+           const wasHuman = gameState.playerTypes[prevPlayerId] === 'human';
+           const weControlledIt = wasHuman 
+               ? onlineConfig.localPlayerIds.includes(prevPlayerId)
+               : onlineConfig.isHost; // Host controls AI
+               
+           if (weControlledIt) {
+               updateRoomGameState(onlineConfig.roomId, gameState, user.uid);
+           }
+       }
+    }
+    previousPlayerIndex.current = gameState.currentPlayerIndex;
+    previousTurnPhase.current = gameState.turnPhase;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameState?.currentPlayerIndex, gameState?.turnPhase, onlineConfig, user]);
 
   // Update expanded states and isMobile when window resizes
   useEffect(() => {
@@ -345,8 +449,23 @@ function App() {
     (async () => {
       if (!gameState || gameState.endGameMode || gameState.turnPhase === 'Score') return;
 
+      let isAiHost = false;
+      if (onlineConfig && gameState) {
+          let hostPlayerId: PlayerId | null = null;
+          for (let i = 1; i <= 4; i++) {
+             if (gameState.playerTypes[i as PlayerId] === 'human') {
+                 hostPlayerId = i as PlayerId;
+                 break;
+             }
+          }
+          if (hostPlayerId !== null && onlineConfig.localPlayerIds.includes(hostPlayerId)) {
+              isAiHost = true;
+          }
+      }
+
       const currentPlayer = gameState.players[gameState.currentPlayerIndex];
       if (gameState.playerTypes[currentPlayer] === 'human') return;
+      if (onlineConfig && !isAiHost) return; // Only dynamically designated host executes AI in online games
 
       // It's the AI's turn! Depending on phase, it acts.
       if (gameState.turnPhase === 'PlaceTile') {
@@ -404,6 +523,7 @@ function App() {
     })();
 
     return () => { active = false; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameState, pendingAIMove?.meeplePlacement]);
 
   // Centralized Board Boundary Enforcement
@@ -420,7 +540,7 @@ function App() {
   }, [gameState, zoom, windowSize]);
 
   if (!gameState) {
-    return <StartScreen isMobile={isMobile} onStartGame={(names: Record<PlayerId, string>, types: Record<PlayerId, PlayerType>) => setGameState(createInitialState(names, types))} />;
+    return <StartScreen isMobile={isMobile} onStartGame={handleStartGame} />;
   }
 
   const currentPlayer = gameState.players[gameState.currentPlayerIndex];
@@ -487,6 +607,13 @@ function App() {
 
   const handlePlacementClick = (x: number, y: number) => {
     if (selectedHandIndex === -1) return;
+    
+    // Prevent placing if it's not our local turn in online mode
+    if (onlineConfig) {
+       const isOurTurn = onlineConfig.localPlayerIds.includes(currentPlayer);
+       if (!isOurTurn) return; // Block remote players from making a move
+    }
+
     setPrePlacementState(gameState);
     const newState: GameState = JSON.parse(JSON.stringify(gameState));
     const success = placeTile(newState, currentPlayer, selectedHandIndex, x, y, rotation);
@@ -550,8 +677,34 @@ function App() {
     >
       <style>{SCORING_CSS}</style>
 
+      {systemMessage && (
+        <div style={{
+           position: 'absolute', top: 80, left: '50%', transform: 'translateX(-50%)',
+           background: '#e74c3c', color: 'white', padding: '10px 20px', borderRadius: '8px', zIndex: 5000,
+           fontWeight: 'bold', boxShadow: '0 4px 10px rgba(0,0,0,0.3)', animation: 'fadeIn 0.3s'
+        }}>
+           {systemMessage}
+        </div>
+      )}
+
       {/* AI Thinking Banner */}
       {isAiThinking && (
+        <div
+          className="thinking-banner"
+          style={{
+            '--player-color': PLAYER_COLORS[currentPlayer],
+            '--player-color-faint': `${PLAYER_COLORS[currentPlayer]}44`
+          } as React.CSSProperties}
+        >
+          <div className="spinner"></div>
+          <div className="thinking-banner-text">
+            {t('game.playerTurn', { name: gameState.playerNames[currentPlayer] }) || `${gameState.playerNames[currentPlayer]}'s turn`}
+          </div>
+        </div>
+      )}
+
+      {/* Remote Player Banner */}
+      {onlineConfig && !onlineConfig.localPlayerIds.includes(currentPlayer) && gameState.playerTypes[currentPlayer] === 'human' && gameState.turnPhase !== 'GameOver' && (
         <div
           className="thinking-banner"
           style={{
@@ -823,7 +976,7 @@ function App() {
       />
 
       {
-        gameState.turnPhase === 'PlaceMeeple' && gameState.playerTypes[currentPlayer] === 'human' && (() => {
+        gameState.turnPhase === 'PlaceMeeple' && gameState.playerTypes[currentPlayer] === 'human' && (!onlineConfig || onlineConfig.localPlayerIds.includes(currentPlayer)) && (() => {
           const meeplesLeft = gameState.remainingMeeples[currentPlayer]?.standard ?? 0;
           const hasNoMeeples = meeplesLeft === 0;
           return (
@@ -888,9 +1041,9 @@ function App() {
         })()
       }
 
-      {/* Show hand if it's a human turn */}
+      {/* Show hand if it's a human turn. Hide opponents' hands in online mode. */}
       {
-        gameState.turnPhase !== 'PlaceMeeple' && gameState.turnPhase !== 'GameOver' && gameState.playerTypes[currentPlayer] === 'human' && (
+        gameState.turnPhase !== 'PlaceMeeple' && gameState.turnPhase !== 'GameOver' && gameState.playerTypes[currentPlayer] === 'human' && (!onlineConfig || onlineConfig.localPlayerIds.includes(currentPlayer)) && (
           <>
             {useRetractableUI && (
               <div style={{ display: 'none' }} />
@@ -954,17 +1107,23 @@ function App() {
             showBoardPostGame={showBoardPostGame}
             setShowBoardPostGame={setShowBoardPostGame}
             setShowFieldView={setShowFieldView}
-            handlePlayAgain={() => {
-              setGameState(createInitialState(gameState.playerNames, gameState.playerTypes));
-              setSelectedHandIndex(-1);
-              setRotation(0);
-              setShowDeckViewer(false);
-              setShowBoardPostGame(false);
-              setPan({ x: 0, y: 0 });
-              setZoom(1);
-            }}
-            handleBackToMainMenu={() => {
+            handlePlayAgain={
+              onlineConfig ? undefined : () => {
+                setGameState(createInitialState(gameState.playerNames, gameState.playerTypes));
+                setSelectedHandIndex(-1);
+                setRotation(0);
+                setShowDeckViewer(false);
+                setShowBoardPostGame(false);
+                setPan({ x: 0, y: 0 });
+                setZoom(1);
+              }
+            }
+            handleBackToMainMenu={async () => {
+              if (onlineConfig && user) {
+                  await leaveFinishedRoom(onlineConfig.roomId, user.uid);
+              }
               setGameState(null);
+              setOnlineConfig(null);
               setSelectedHandIndex(-1);
               setRotation(0);
               setShowDeckViewer(false);
@@ -1108,9 +1267,18 @@ function App() {
                   {t('tutorial.stay')}
                 </button>
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     setShowQuitConfirm(false);
+                    if (gameState && onlineConfig && user) {
+                        const newState: GameState = JSON.parse(JSON.stringify(gameState));
+                        onlineConfig.localPlayerIds.forEach(id => {
+                            newState.playerTypes[id] = 'ai-medium';
+                        });
+                        await quitActiveGame(onlineConfig.roomId, user.uid, newState);
+                    }
+                    
                     setGameState(null);
+                    setOnlineConfig(null);
                     setSelectedHandIndex(-1);
                     setRotation(0);
                     setShowDeckViewer(false);

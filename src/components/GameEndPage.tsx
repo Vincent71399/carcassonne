@@ -6,9 +6,9 @@ import { PLAYER_COLORS, FEATURE_COLORS, UI_COLORS } from '../utils/styles';
 interface GameEndPageProps {
   gameState: GameState;
   showBoardPostGame: boolean;
-  setShowBoardPostGame: (val: boolean) => void;
-  setShowFieldView: (val: boolean) => void;
-  handlePlayAgain: () => void;
+  setShowBoardPostGame: (show: boolean) => void;
+  setShowFieldView: React.Dispatch<React.SetStateAction<boolean>>;
+  handlePlayAgain?: () => void;
   handleBackToMainMenu: () => void;
 }
 
@@ -166,20 +166,22 @@ export const GameEndPage: React.FC<GameEndPageProps> = ({
         >
           {t('game.viewBoard')}
         </button>
-        <button
-          onClick={handlePlayAgain}
-          style={{
-            padding: '10px 30px', fontSize: 'min(18px, 2.2vh)', fontWeight: 'bold',
-            background: `linear-gradient(90deg, ${UI_COLORS.primary}, ${UI_COLORS.primaryLight})`,
-            color: '#fff', border: 'none', borderRadius: 12, cursor: 'pointer',
-            boxShadow: '0 4px 20px rgba(33,150,243,0.5)',
-            transition: 'transform 0.15s'
-          }}
-          onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.06)')}
-          onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
-        >
-          {t('game.playAgain')}
-        </button>
+        {handlePlayAgain && (
+          <button
+            onClick={handlePlayAgain}
+            style={{
+              padding: '10px 30px', fontSize: 'min(18px, 2.2vh)', fontWeight: 'bold',
+              background: `linear-gradient(90deg, ${UI_COLORS.primary}, ${UI_COLORS.primaryLight})`,
+              color: '#fff', border: 'none', borderRadius: 12, cursor: 'pointer',
+              boxShadow: '0 4px 20px rgba(33,150,243,0.5)',
+              transition: 'transform 0.15s'
+            }}
+            onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.06)')}
+            onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
+          >
+            {t('game.playAgain')}
+          </button>
+        )}
         <button
           onClick={handleBackToMainMenu}
           style={{
