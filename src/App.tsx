@@ -4,15 +4,17 @@ import { Hand } from './components/Hand';
 import { DeckViewer } from './components/DeckViewer';
 import { createInitialState, placeTile, discardTile, placeMeeple, skipMeeple, finishScoring, advanceTurn } from './engine/state';
 import { calculateBestAIMove } from './engine/ai';
-import { PLAYER_COLORS, FEATURE_COLORS, UI_COLORS } from './utils/styles.ts';
-import { DEBUG_MODE, AI_EXPERIMENT_MODE } from './utils/debug.ts';
+import { PLAYER_COLORS, UI_COLORS } from './utils/styles';
+import { DEBUG_MODE, AI_EXPERIMENT_MODE } from './utils/debug';
 import { getValidPlacements } from './engine/board';
 import { BASE_TILES } from './engine/tiles';
 import { TileRenderer } from './components/TileRenderer';
-import { computeFieldConquest, getCityMaskPaths, getRoadMaskPaths } from './engine/fieldConquest';
+import { computeFieldConquest } from './engine/fieldConquest';
 import { FieldSandbox } from './components/FieldSandbox';
 import { StartScreen } from './components/StartScreen';
 import { getOccupiedFeaturesOnTile } from './engine/features';
+import { GameEndPage } from './components/GameEndPage';
+import { TileGallery } from './components/TileGallery';
 import type { GameState, PlayerId, PlayerType } from './engine/types';
 
 interface VendorDocument extends Document {
@@ -978,200 +980,32 @@ function App() {
 
       {/* Game Over Overlay */}
       {
-        gameState.turnPhase === 'GameOver' && (() => {
-          const sortedPlayers = [...gameState.players].sort((a, b) => (gameState.scores[b] || 0) - (gameState.scores[a] || 0));
-          const topScore = gameState.scores[sortedPlayers[0]] || 0;
-          const winners = sortedPlayers.filter(p => (gameState.scores[p] || 0) === topScore);
-          const medals = ['🥇', '🥈', '🥉'];
-          return (
-            <>
-              {/* Always render Board so players can pan/zoom and use field view */}
-              {showBoardPostGame && (
-                <div style={{
-                  position: 'absolute', top: 0, left: 0, right: 0,
-                  background: 'linear-gradient(90deg, rgba(18,18,40,0.96), rgba(40,15,60,0.96))',
-                  zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '10px 24px', boxShadow: '0 2px 16px rgba(0,0,0,0.5)'
-                }}>
-                  <span style={{ color: '#ffd700', fontWeight: 'bold', fontSize: 18 }}>
-                    {winners.length === 1 ? t('game.playerWins', { name: gameState.playerNames[winners[0]] || winners[0] }) : t('game.tie')}
-                    {gameState.players.map(p => (
-                      <span key={p} style={{ marginLeft: 16, fontSize: 14, color: PLAYER_COLORS[p] || '#fff' }}>
-                        P{p}: {gameState.scores[p] || 0}pts
-                      </span>
-                    ))}
-                  </span>
-                  <button
-                    onClick={() => setShowBoardPostGame(false)}
-                    style={{
-                      padding: '7px 18px', background: 'rgba(255,215,0,0.15)', color: '#ffd700',
-                      border: '1px solid #ffd70055', borderRadius: 8, cursor: 'pointer',
-                      fontWeight: 'bold', fontSize: 13
-                    }}
-                  >← Back to Results</button>
-                </div>
-              )}
-              {!showBoardPostGame && (
-                <div style={{
-                  position: 'absolute', inset: 0,
-                  background: 'linear-gradient(135deg, rgba(18,18,40,0.97), rgba(40,15,60,0.97))',
-                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                  zIndex: 1000, fontFamily: 'sans-serif'
-                }}>
-                  <div style={{ fontSize: 64, marginBottom: 12 }}>🏰</div>
-                  <h1 style={{ color: '#ffd700', fontSize: 36, margin: '0 0 4px', textShadow: '0 2px 12px rgba(255,215,0,0.6)' }}>{t('game.gameOverTitle')}</h1>
-                  <p style={{ color: '#aaa', margin: '0 0 32px', fontSize: 16 }}>{t('game.gameOverSubtitle')}</p>
-
-                  {/* Winner banner */}
-                  <div style={{
-                    background: 'linear-gradient(90deg, #ffd700, #ff9800)',
-                    borderRadius: 14, padding: '12px 32px', marginBottom: 28,
-                    boxShadow: '0 4px 24px rgba(255,165,0,0.4)'
-                  }}>
-                    <span style={{ fontSize: 20, fontWeight: 'bold', color: '#1a1a1a' }}>
-                      {winners.length === 1 ? t('game.playerWins', { name: gameState.playerNames[winners[0]] || winners[0] }) : `${t('game.tie')}: ${winners.map(p => gameState.playerNames[p] || p).join(' & ')}`}
-                    </span>
-                  </div>
-
-                  {/* Final score breakdown bars */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 16, width: '100%', maxWidth: 480, marginBottom: 36 }}>
-                    {(() => {
-                      const CATS = [
-                        { key: 'city' as const, label: t('game.categories.city'), color: '#c9a84c', midColor: '#e8cfa0' },
-                        { key: 'road' as const, label: t('game.categories.road'), color: '#9e9e9e', midColor: '#cfcfcf' },
-                        { key: 'monastery' as const, label: t('game.categories.monastery'), color: FEATURE_COLORS.monastery, midColor: '#f08080' },
-                        { key: 'field' as const, label: t('game.categories.field'), color: FEATURE_COLORS.field, midColor: '#90c994' },
-                      ];
-                      return sortedPlayers.map((pid, rank) => {
-                        const total = gameState.scores[pid] || 0;
-                        const breakdown = gameState.endGameScoreBreakdown?.[pid];
-                        const midBreakdown = gameState.midGameScoreBreakdown?.[pid];
-                        const maxScore = Math.max(...gameState.players.map(p => gameState.scores[p] || 0), 1);
-
-                        return (
-                          <div key={pid} style={{
-                            background: 'rgba(255,255,255,0.06)',
-                            borderLeft: `5px solid ${PLAYER_COLORS[pid] || '#999'}`,
-                            borderRadius: '0 12px 12px 0',
-                            padding: '12px 16px',
-                          }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                              <span style={{ color: '#eee', fontSize: 15 }}>{medals[rank] || '  '} {gameState.playerNames[pid] || t('startScreen.playerPlaceholder', { id: pid })}</span>
-                              <span style={{ color: '#ffd700', fontWeight: 'bold', fontSize: 18 }}>{total} pts</span>
-                            </div>
-                            {/* Stacked bar */}
-                            <div style={{ display: 'flex', height: 20, borderRadius: 6, overflow: 'hidden', background: 'rgba(0,0,0,0.3)', marginBottom: 6 }}>
-                              {/* Mid-game segments (lighter shade, same category colours) */}
-                              {midBreakdown && CATS.map(cat => {
-                                const pts = midBreakdown[cat.key] || 0;
-                                if (pts === 0) return null;
-                                return (
-                                  <div key={`mid-${cat.key}`} title={`${t('game.midGame')} ${cat.label}: ${pts}pts`} style={{
-                                    width: `${(pts / maxScore) * 100}%`,
-                                    background: cat.midColor, minWidth: 2,
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    fontSize: 10, color: '#333', fontWeight: 'bold',
-                                  }}>{pts > 4 ? pts : ''}</div>
-                                );
-                              })}
-                              {/* End-game category segments (full colour) */}
-                              {breakdown && CATS.map(cat => {
-                                const pts = breakdown[cat.key] || 0;
-                                if (pts === 0) return null;
-                                return (
-                                  <div key={cat.key} title={`End-game ${cat.label}: ${pts}pts`} style={{
-                                    width: `${(pts / maxScore) * 100}%`,
-                                    background: cat.color, minWidth: 2,
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    fontSize: 10, color: '#fff', fontWeight: 'bold',
-                                  }}>{pts > 4 ? pts : ''}</div>
-                                );
-                              })}
-                            </div>
-                            {/* Legend pills */}
-                            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                              {midBreakdown && CATS.map(cat => {
-                                const pts = midBreakdown[cat.key] || 0;
-                                if (pts === 0) return null;
-                                return <span key={`mid-${cat.key}`} style={{ fontSize: 11, background: cat.midColor, borderRadius: 10, padding: '2px 7px', color: '#333' }}>{t('game.midGame')} {cat.label} {pts}</span>;
-                              })}
-                              {breakdown && CATS.map(cat => {
-                                const pts = breakdown[cat.key] || 0;
-                                if (pts === 0) return null;
-                                return <span key={cat.key} style={{ fontSize: 11, background: cat.color, borderRadius: 10, padding: '2px 7px', color: '#fff' }}>{cat.label} {pts}</span>;
-                              })}
-                            </div>
-                          </div>
-                        );
-                      });
-                    })()}
-                  </div>
-                  <div style={{ display: 'flex', gap: 16 }}>
-                    <button
-                      onClick={() => {
-                        setShowBoardPostGame(true);
-                        setShowFieldView(true);
-                      }}
-                      style={{
-                        padding: '14px 32px', fontSize: 18, fontWeight: 'bold',
-                        background: 'rgba(255,255,255,0.1)',
-                        color: '#ddd', border: '1px solid #555', borderRadius: 12, cursor: 'pointer',
-                        transition: 'all 0.15s'
-                      }}
-                      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.2)'; e.currentTarget.style.color = '#fff'; }}
-                      onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; e.currentTarget.style.color = '#ddd'; }}
-                    >
-                      {t('game.viewFieldConquest')}
-                    </button>
-                    <button
-                      onClick={() => {
-                        setGameState(createInitialState(gameState.playerNames, gameState.playerTypes));
-                        setSelectedHandIndex(-1);
-                        setRotation(0);
-                        setShowDeckViewer(false);
-                        setShowBoardPostGame(false);
-                        setPan({ x: 0, y: 0 });
-                        setZoom(1);
-                      }}
-                      style={{
-                        padding: '14px 48px', fontSize: 18, fontWeight: 'bold',
-                        background: `linear-gradient(90deg, ${UI_COLORS.primary}, ${UI_COLORS.primaryLight})`,
-                        color: '#fff', border: 'none', borderRadius: 12, cursor: 'pointer',
-                        boxShadow: '0 4px 20px rgba(33,150,243,0.5)',
-                        transition: 'transform 0.15s'
-                      }}
-                      onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.06)')}
-                      onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
-                    >
-                      {t('game.playAgain')}
-                    </button>
-                    <button
-                      onClick={() => {
-                        setGameState(null);
-                        setSelectedHandIndex(-1);
-                        setRotation(0);
-                        setShowDeckViewer(false);
-                        setShowBoardPostGame(false);
-                        setPan({ x: 0, y: 0 });
-                        setZoom(1);
-                      }}
-                      style={{
-                        padding: '14px 24px', fontSize: 16, fontWeight: 'bold',
-                        background: 'rgba(255,255,255,0.05)',
-                        color: '#bbb', border: '1px solid #444', borderRadius: 12, cursor: 'pointer',
-                        transition: 'all 0.15s'
-                      }}
-                      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; e.currentTarget.style.color = '#fff'; }}
-                      onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = '#bbb'; }}
-                    >
-                      {t('game.backToMainMenu')}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </>
-          );
-        })()
+        gameState.turnPhase === 'GameOver' && (
+          <GameEndPage
+            gameState={gameState}
+            showBoardPostGame={showBoardPostGame}
+            setShowBoardPostGame={setShowBoardPostGame}
+            setShowFieldView={setShowFieldView}
+            handlePlayAgain={() => {
+              setGameState(createInitialState(gameState.playerNames, gameState.playerTypes));
+              setSelectedHandIndex(-1);
+              setRotation(0);
+              setShowDeckViewer(false);
+              setShowBoardPostGame(false);
+              setPan({ x: 0, y: 0 });
+              setZoom(1);
+            }}
+            handleBackToMainMenu={() => {
+              setGameState(null);
+              setSelectedHandIndex(-1);
+              setRotation(0);
+              setShowDeckViewer(false);
+              setShowBoardPostGame(false);
+              setPan({ x: 0, y: 0 });
+              setZoom(1);
+            }}
+          />
+        )
       }
       {/* Deck Viewer Modal */}
       {
@@ -1186,101 +1020,16 @@ function App() {
       {/* Tile Gallery Modal */}
       {
         showGallery && (
-          <div style={{
-            position: 'fixed', inset: 0,
-            background: 'rgba(255,255,255,0.98)',
-            zIndex: 2000, overflowY: 'auto', padding: '40px',
-            fontFamily: 'sans-serif'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 30 }}>
-              <h2 style={{ color: '#333', margin: 0 }}>{t('game.tileGalleryTitle')}</h2>
-              <div style={{ display: 'flex', gap: 16 }}>
-                <button
-                  onClick={() => setShowFieldView(v => !v)}
-                  style={{
-                    background: showFieldView ? UI_COLORS.success : '#e0e0e0',
-                    color: showFieldView ? '#fff' : '#333', border: 'none', borderRadius: 8,
-                    padding: '8px 16px', fontSize: 16, cursor: 'pointer', fontWeight: 'bold'
-                  }}
-                >
-                  {showFieldView ? '🌾 Field Coverage ON' : '🌾 Field Coverage OFF'}
-                </button>
-                <button
-                  onClick={() => setShowGallery(false)}
-                  style={{
-                    background: UI_COLORS.danger, color: '#fff', border: 'none', borderRadius: 8,
-                    padding: '8px 16px', fontSize: 16, cursor: 'pointer', fontWeight: 'bold'
-                  }}
-                >Close</button>
-              </div>
-            </div>
-            <div style={{
-              display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
-              gap: '30px', maxWidth: 1200, margin: '0 auto'
-            }}>
-              {BASE_TILES.map(def => {
-                // Create dummy field conquest data mapping each field index to a distinct "player" color
-                const fakeConquest = new Map<string, number[]>();
-                if (def.fieldConnections) {
-                  def.fieldConnections.forEach((_, i) => {
-                    fakeConquest.set(`0,0,${i}`, [1]); // always red (player 1)
-                  });
-                }
-                return (
-                  <div key={def.typeId} style={{ textAlign: 'center' }}>
-                    <div style={{ position: 'relative', width: 140, height: 140, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', borderRadius: 4 }}>
-                      <TileRenderer
-                        def={def} size={140}
-                        placed={{ id: 'gal', typeId: def.typeId, x: 0, y: 0, rotation: 0, meeples: [] }}
-                      />
-                      {showFieldView && def.fieldConnections && (() => {
-                        const hasMonastery = !!def.monastery;
-                        const cityPaths = getCityMaskPaths(def);
-                        const roadPaths = getRoadMaskPaths(def);
-                        return def.fieldConnections.map((_, fIdx) => {
-                          const winners = fakeConquest.get(`0,0,${fIdx}`);
-                          if (!winners) return null;
-                          const fieldD = def.fieldPaths?.[fIdx];
-                          const isFullTile = def.fieldConnections!.length === 1;
-                          if (!fieldD && !isFullTile) return null;
-
-                          const patId = `gal-pat-${def.typeId}-${fIdx}`;
-                          const maskId = `gal-msk-${def.typeId}-${fIdx}`;
-                          const clipId = `gal-clp-${def.typeId}-${fIdx}`;
-                          const c = PLAYER_COLORS[winners[0]] || '#888';
-                          return (
-                            <svg key={fIdx} width="140" height="140" viewBox="0 0 100 100" style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }}>
-                              <defs>
-                                <pattern id={patId} x="0" y="0" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-                                  <rect width="10" height="10" fill={c} fillOpacity="0.22" />
-                                  <line x1="0" y1="5" x2="10" y2="5" stroke={c} strokeWidth="4" strokeOpacity="0.7" />
-                                </pattern>
-                                <mask id={maskId}>
-                                  <rect width="100" height="100" fill="white" />
-                                  {cityPaths.map((d: string, i: number) => <path key={`c${i}`} d={d} fill="black" />)}
-                                  {roadPaths.map((d: string, i: number) => <path key={`r${i}`} d={d} fill="none" stroke="black" strokeWidth="12" strokeLinecap="round" />)}
-                                  {hasMonastery && <circle cx="50" cy="50" r="24" fill="black" />}
-                                </mask>
-                                <clipPath id={clipId}>
-                                  {isFullTile ? <rect width="100" height="100" /> : <path d={fieldD} />}
-                                </clipPath>
-                              </defs>
-                              <rect x="0" y="0" width="100" height="100" fill={`url(#${patId})`} mask={`url(#${maskId})`} clipPath={`url(#${clipId})`} />
-                            </svg>
-                          );
-                        });
-                      })()}
-                    </div>
-                    <h4 style={{ margin: '8px 0 0', color: '#555' }}>{t('game.tileId', { id: def.typeId })}</h4>
-                  </div>
-                );
-              })}
-            </div>
-          </div >
+          <TileGallery
+            showFieldView={showFieldView}
+            setShowFieldView={setShowFieldView}
+            onClose={() => setShowGallery(false)}
+          />
         )
       }
       {/* Quit Button (placed here to overlay everything) */}
-      <button
+      {!showGallery && (
+        <button
         className="quit-button"
         style={{
           position: 'absolute',
@@ -1312,10 +1061,11 @@ function App() {
           <line x1="21" y1="12" x2="9" y2="12"></line>
         </svg>
       </button>
+      )}
 
       {/* Fullscreen Button: Restricted to Android only */}
       {
-        !isFullscreen && !isIPad && !isIPhone && (
+        !showGallery && !isFullscreen && !isIPad && !isIPhone && (
           <button
             onClick={(e) => {
               e.stopPropagation();
