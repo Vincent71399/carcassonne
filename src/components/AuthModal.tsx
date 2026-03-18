@@ -4,9 +4,10 @@ import { useTranslation } from 'react-i18next';
 
 interface AuthModalProps {
     onClose: () => void;
+    onSuccess?: () => void;
 }
 
-export const AuthModal: React.FC<AuthModalProps> = ({ onClose }) => {
+export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess }) => {
     const { signInWithGoogle, signInWithEmail, signUpWithEmail } = useAuth();
     const { t } = useTranslation();
     const [isLogin, setIsLogin] = useState(true);
@@ -26,6 +27,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose }) => {
             } else {
                 await signUpWithEmail(email, password);
             }
+            onSuccess?.();
             onClose();
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : t('auth.failed'));
@@ -37,6 +39,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose }) => {
     const handleGoogle = async () => {
         try {
             await signInWithGoogle();
+            onSuccess?.();
             onClose();
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : t('auth.googleFailed'));

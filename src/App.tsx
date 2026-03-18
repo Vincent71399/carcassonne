@@ -301,7 +301,7 @@ function App() {
             Object.keys(room.gameState.playerTypes).forEach(id => {
                 const pId = parseInt(id) as PlayerId;
                 if (prev.playerTypes[pId] === 'human' && room.gameState!.playerTypes[pId] !== 'human') {
-                    setSystemMessage(`${room.gameState!.playerNames[pId]} has left the game. AI taking over!`);
+                    setSystemMessage(t('game.playerLeftAITakesOver', { name: room.gameState!.playerNames[pId] }));
                 }
             });
         }

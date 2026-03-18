@@ -81,12 +81,12 @@
             "roadAttack": "进攻对方道路评分",
             "fieldAttack": "进攻对方草原评分",
             "cityOpenEdgeDelta": "城市开口边缘 Δ"
-        }
+        },
+        "playerLeftAITakesOver": "{{name}} 已离开游戏。AI 接管！"
     },
     "deckViewer": {
         "title": "剩余板块",
-        "remaining_one": "剩余 {{count}} 块",
-        "remaining_other": "剩余 {{count}} 块"
+        "remaining": "剩余 {{count}} 块"
     },
     "tutorial": {
         "welcomeTitle": "欢迎来到卡卡颂",

@@ -81,12 +81,12 @@
             "roadAttack": "Road Attack Score",
             "fieldAttack": "Field Attack Score",
             "cityOpenEdgeDelta": "City Open Edge Δ"
-        }
+        },
+        "playerLeftAITakesOver": "{{name}} has left the game. AI taking over!"
     },
     "deckViewer": {
         "title": "Remaining Deck",
-        "remaining_one": "{{count}} tile remaining",
-        "remaining_other": "{{count}} tiles remaining"
+        "remaining_one": "{{count}} tile remaining"
     },
     "tutorial": {
         "welcomeTitle": "Welcome to Carcassonne",

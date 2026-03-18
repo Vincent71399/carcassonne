@@ -62,7 +62,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame 
     const { t, i18n } = useTranslation();
     const { user, logout } = useAuth();
     const [showTutorial, setShowTutorial] = useState(false);
-    const [showAuthModal, setShowAuthModal] = useState(false);
+    const [authModalIntent, setAuthModalIntent] = useState<'online' | 'general' | null>(null);
     const [mode, setMode] = useState<'local' | 'online'>(() => {
         const saved = localStorage.getItem('carcassonne_mode');
         return (saved as 'local' | 'online') || 'local';
@@ -119,6 +119,12 @@ export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame 
         localStorage.setItem('carcassonne_names', JSON.stringify(names));
         localStorage.setItem('carcassonne_types', JSON.stringify(types));
     }, [mode, playerCount, names, types]);
+
+    useEffect(() => {
+        if (!user) {
+            setMode(prev => prev === 'online' ? 'local' : prev);
+        }
+    }, [user]);
 
     const handleTypeChange = (pId: number, newType: PlayerType) => {
         setTypes(prev => ({ ...prev, [pId]: newType }));
@@ -262,7 +268,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame 
                         </button>
                     </>
                 ) : (
-                    <button onClick={() => setShowAuthModal(true)} style={{ background: '#3498db', border: 'none', color: 'white', borderRadius: 15, padding: '6px 16px', fontSize: '14px', cursor: 'pointer', fontWeight: 'bold' }}>
+                    <button onClick={() => setAuthModalIntent('general')} style={{ background: '#3498db', border: 'none', color: 'white', borderRadius: 15, padding: '6px 16px', fontSize: '14px', cursor: 'pointer', fontWeight: 'bold' }}>
                         {t('auth.login', 'Login')}
                     </button>
                 )}
@@ -320,7 +326,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame 
                             transition: 'all 0.2s',
                         }}
                         onClick={() => {
-                            if (!user) setShowAuthModal(true);
+                            if (!user) setAuthModalIntent('online');
                             else setMode('online');
                         }}
                     >
@@ -468,7 +474,16 @@ export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame 
             </div>
 
             {showTutorial && <TutorialModal isMobile={isMobile} onClose={() => setShowTutorial(false)} />}
-            {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} />}
+            {authModalIntent && (
+                <AuthModal
+                    onClose={() => setAuthModalIntent(null)}
+                    onSuccess={() => {
+                        if (authModalIntent === 'online') {
+                            setMode('online');
+                        }
+                    }}
+                />
+            )}
 
             {/* Author Credit */}
             <div style={{
