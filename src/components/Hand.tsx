@@ -74,12 +74,12 @@ export const Hand: React.FC<HandProps> = ({
                     boxShadow: `0 0 6px ${playerColor}88`,
                 }} />
             </div>
-            <div style={{ display: 'flex', gap: isMobile ? '10px' : '20px' }}>
+            <div style={{ display: 'flex', gap: isMobile ? '14px' : '20px' }}>
                 {hand.map((tileDef, idx) => (
                     <TileRenderer
                         key={`${tileDef.typeId}-${idx}`}
                         def={tileDef}
-                        size={isMobile ? 90 : 120}
+                        size={isMobile ? 100 : 120}
                         interactive
                         selected={selectedIndex === idx}
                         placed={selectedIndex === idx ? { id: 'hand', typeId: tileDef.typeId, x: 0, y: 0, rotation: currentRotation, meeples: [] } : undefined}
