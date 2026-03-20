@@ -5,17 +5,18 @@ import { DeckViewer } from './components/DeckViewer';
 import { createInitialState, placeTile, discardTile, placeMeeple, skipMeeple, finishScoring, advanceTurn } from './engine/state';
 import { calculateBestAIMove } from './engine/ai';
 import { PLAYER_COLORS, UI_COLORS } from './utils/styles';
-import { DEBUG_MODE, AI_EXPERIMENT_MODE } from './utils/debug';
+// removed debug imports
 import { getValidPlacements } from './engine/board';
 import { BASE_TILES } from './engine/tiles';
 import { TileRenderer } from './components/TileRenderer';
 import { computeFieldConquest } from './engine/fieldConquest';
 import { FieldSandbox } from './components/FieldSandbox';
+import { Scoreboard } from './components/Scoreboard';
 import { StartScreen } from './components/StartScreen';
 import { getOccupiedFeaturesOnTile } from './engine/features';
 import { GameEndPage } from './components/GameEndPage';
 import { TileGallery } from './components/TileGallery';
-import type { GameState, PlayerId, PlayerType } from './engine/types';
+import type { GameState, PlayerId, PlayerType, MeepleType } from './engine/types';
 import { useAuth } from './context/AuthContext';
 import { listenToRoom, updateRoomGameState, quitActiveGame, leaveFinishedRoom } from './firebase/rooms';
 
@@ -140,6 +141,7 @@ function App() {
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [selectedHandIndex, setSelectedHandIndex] = useState(-1);
+  const [selectedMeepleType, setSelectedMeepleType] = useState<MeepleType>('standard');
   const [rotation, setRotation] = useState(0);
   const [prePlacementState, setPrePlacementState] = useState<GameState | null>(null);
 
@@ -256,8 +258,8 @@ function App() {
     // Game state will be initialized by the StartScreen now instead of auto-starting.
   }, []);
 
-  const handleStartGame = (names: Record<PlayerId, string>, types: Record<PlayerId, PlayerType>, roomId?: string, isHost?: boolean, localPlayerIds?: PlayerId[]) => {
-    const initialState = createInitialState(names, types);
+  const handleStartGame = (names: Record<PlayerId, string>, types: Record<PlayerId, PlayerType>, roomId?: string, isHost?: boolean, localPlayerIds?: PlayerId[], useLargeMeeple?: boolean) => {
+    const initialState = createInitialState(names, types, useLargeMeeple);
     setGameState(initialState);
     if (roomId && user && localPlayerIds && isHost !== undefined) {
       setOnlineConfig({ roomId, isHost, localPlayerIds });
@@ -628,10 +630,11 @@ function App() {
 
 
     const newState: GameState = JSON.parse(JSON.stringify(gameState));
-    const success = placeMeeple(newState, currentPlayer, featureId);
+    const success = placeMeeple(newState, currentPlayer, featureId, selectedMeepleType);
     if (success) {
       setGameState(newState);
       setPrePlacementState(null);
+      setSelectedMeepleType('standard');
     }
   };
 
@@ -753,201 +756,21 @@ function App() {
       )}
 
       {/* Scoreboard Overlay */}
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          position: 'absolute',
-          top: isScoreboardRetractable ? 60 : 20,
-          left: 20,
-          backgroundColor: 'rgba(255,255,255,0.95)',
-          padding: '16px',
-          borderRadius: '12px',
-          boxShadow: '0 4px 15px rgba(0,0,0,0.2)',
-          zIndex: 50,
-          fontFamily: 'sans-serif',
-          minWidth: '200px',
-          transition: isScoreboardRetractable ? 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)' : 'none',
-          transform: isScoreboardRetractable && !isScoreboardExpanded ? 'translateX(-120%)' : 'translateX(0)',
-          maxHeight: isScoreboardRetractable ? '70vh' : 'none',
-          overflowY: isScoreboardRetractable ? 'auto' : 'visible'
-        }}>
-        <h3 style={{ margin: '0 0 10px 0', color: '#333', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px' }}>
-          <span>{t('game.scoreboard')}</span>
-          <div style={{ display: 'flex', gap: 4 }}>
-            <button
-              onClick={() => setShowFieldView(v => !v)}
-              title={t('game.toggleFieldView')}
-              style={{
-                background: showFieldView ? UI_COLORS.success : 'rgba(0,0,0,0.08)',
-                border: 'none', borderRadius: 6, cursor: 'pointer',
-                fontSize: 16, padding: '2px 8px',
-                color: showFieldView ? '#fff' : '#555',
-                transition: 'all 0.2s'
-              }}
-            >🌾</button>
-            <button
-              onClick={() => setShowDeckViewer(v => !v)}
-              title={t('game.showRemainingTiles')}
-              style={{
-                background: showDeckViewer ? UI_COLORS.primary : 'rgba(0,0,0,0.08)',
-                border: 'none', borderRadius: 6, cursor: 'pointer',
-                fontSize: 16, padding: '2px 8px',
-                color: showDeckViewer ? '#fff' : '#555',
-                transition: 'all 0.2s'
-              }}
-            >🃏</button>
-            <button
-              onClick={() => setIsMuted(v => !v)}
-              title={isMuted ? t('game.unmuteSound') : t('game.muteSound')}
-              style={{
-                background: isMuted ? UI_COLORS.danger : 'rgba(0,0,0,0.08)',
-                border: 'none', borderRadius: 6, cursor: 'pointer',
-                fontSize: 16, padding: '2px 8px',
-                color: isMuted ? '#fff' : '#555',
-                transition: 'all 0.2s'
-              }}
-            >
-              {isMuted ? '🔇' : '🔊'}
-            </button>
-
-            {DEBUG_MODE && (
-              <>
-                <button
-                  onClick={() => setShowGallery(v => !v)}
-                  title={t('game.toggleTileGallery')}
-                  style={{
-                    background: showGallery ? UI_COLORS.primary : 'rgba(0,0,0,0.08)',
-                    border: 'none', borderRadius: 6, cursor: 'pointer',
-                    fontSize: 16, padding: '2px 8px',
-                    color: showGallery ? '#fff' : '#555',
-                    transition: 'all 0.2s'
-                  }}
-                >🖼️</button>
-                <button
-                  onClick={() => setShowSandbox(true)}
-                  title={t('game.openSandbox')}
-                  style={{
-                    background: 'rgba(0,0,0,0.08)', border: 'none', borderRadius: 6, cursor: 'pointer',
-                    fontSize: 16, padding: '2px 8px', color: '#555'
-                  }}
-                >🧪 {t('game.openSandbox')}</button>
-              </>
-            )}
-
-          </div>
-        </h3>
-        {gameState.players.map(pid => {
-          const isCurrent = currentPlayer === pid;
-          const meepleCount = gameState.remainingMeeples[pid]?.standard ?? 0;
-          const totalMeeples = 7; // standard meeple pool size
-          const color = PLAYER_COLORS[pid] || '#999';
-          return (
-            <div key={pid} style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginBottom: 8,
-              padding: '6px 10px',
-              backgroundColor: isCurrent ? 'rgba(0,0,0,0.05)' : 'transparent',
-              borderLeft: `4px solid ${color}`,
-              borderRadius: '0 4px 4px 0',
-              fontWeight: isCurrent ? 'bold' : 'normal'
-            }}>
-              <div>
-                <div style={{ fontSize: '14px', color: '#333', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  {gameState.playerNames[pid] || t('startScreen.playerPlaceholder', { id: pid })}
-                </div>
-                {/* Score Breakdown display */}
-                <div style={{ fontSize: '11px', color: '#666', marginTop: 2, display: 'flex', gap: 6 }}>
-                  <div>🏰 {gameState.midGameScoreBreakdown[pid]?.city + (gameState.endGameScoreBreakdown?.[pid]?.city || 0)}</div>
-                  <div>🛣️ {gameState.midGameScoreBreakdown[pid]?.road + (gameState.endGameScoreBreakdown?.[pid]?.road || 0)}</div>
-                  <div>🕌 {gameState.midGameScoreBreakdown[pid]?.monastery + (gameState.endGameScoreBreakdown?.[pid]?.monastery || 0)}</div>
-                  {gameState.endGameMode && <div>🌾 {gameState.endGameScoreBreakdown?.[pid]?.field || 0}</div>}
-                </div>
-                {/* Meeple icons: filled = remaining, hollow = used */}
-                <div style={{ display: 'flex', gap: 3, marginTop: 4, flexWrap: 'wrap', maxWidth: 100 }}>
-                  {Array.from({ length: totalMeeples }).map((_, idx) => (
-                    <svg key={idx} width="10" height="10" viewBox="0 0 10 10">
-                      <circle
-                        cx="5" cy="5" r="4"
-                        fill={idx < meepleCount ? color : 'none'}
-                        stroke={color}
-                        strokeWidth="1.5"
-                        opacity={idx < meepleCount ? 1 : 0.3}
-                      />
-                    </svg>
-                  ))}
-                </div>
-              </div>
-              <div style={{ fontSize: '20px', color: '#333' }}>
-                {gameState.scores[pid] || 0}
-              </div>
-            </div>
-          );
-        })}
-
-        {/* AI Experiment Evaluators Box */}
-        {AI_EXPERIMENT_MODE && gameState.lastMoveEvaluation && (
-          <div style={{
-            marginTop: '16px',
-            paddingTop: '16px',
-            borderTop: '1px solid rgba(0,0,0,0.1)',
-            fontSize: '12px',
-            color: '#555'
-          }}>
-            <div style={{ fontWeight: 'bold', marginBottom: '8px', color: '#333', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ fontSize: '14px' }}>🧪</span> {t('game.aiExperimentMode')}
-            </div>
-            <div style={{ fontSize: '11px', color: '#888', marginBottom: '8px' }}>
-              {t('game.lastMoveBy', { name: gameState.playerNames[gameState.lastMoveEvaluation.playerId] || t('startScreen.playerPlaceholder', { id: gameState.lastMoveEvaluation.playerId }) })}
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '8px 12px', alignItems: 'center' }}>
-              {[
-                { label: t('game.eval.complete'), data: gameState.lastMoveEvaluation.complete },
-                { label: t('game.eval.cityInProgress'), data: gameState.lastMoveEvaluation.cityInProgress },
-                { label: t('game.eval.roadInProgress'), data: gameState.lastMoveEvaluation.roadInProgress },
-                { label: t('game.eval.monasteryInProgress'), data: gameState.lastMoveEvaluation.monasteryInProgress },
-                { label: t('game.eval.fieldDelta'), data: gameState.lastMoveEvaluation.field },
-                { label: t('game.eval.meepleUsage'), data: gameState.lastMoveEvaluation.meepleUsage },
-                { label: t('game.eval.cityAttack'), data: gameState.lastMoveEvaluation.cityAttack },
-                { label: t('game.eval.roadAttack'), data: gameState.lastMoveEvaluation.roadAttack },
-                { label: t('game.eval.fieldAttack'), data: gameState.lastMoveEvaluation.fieldAttack },
-                { label: t('game.eval.cityOpenEdgeDelta'), data: gameState.lastMoveEvaluation.cityOpenEdgeDelta }
-              ].map((row, idx) => (
-                <React.Fragment key={idx}>
-                  <span style={{ color: '#666' }}>{row.label}:</span>
-                  <div style={{ textAlign: 'right', display: 'flex', gap: '4px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-                    {gameState.players.map((pid, pIdx) => {
-                      const val = row.data[pid] || 0;
-                      const color = PLAYER_COLORS[pid] || '#999';
-                      return (
-                        <span key={pid} style={{
-                          fontWeight: 'bold',
-                          color: val > 0 ? UI_COLORS.success : (val < 0 ? UI_COLORS.danger : color),
-                          opacity: val === 0 ? 0.3 : 1
-                        }}>
-                          {val > 0 && row.label !== t('game.eval.cityCompletionChance') ? `+${val}` : val}{pIdx < gameState.players.length - 1 || row.data.neutral !== undefined ? ',' : ''}
-                        </span>
-                      );
-                    })}
-                    {row.data.neutral !== undefined && (
-                      <span style={{
-                        fontWeight: 'bold',
-                        color: row.data.neutral > 0 ? UI_COLORS.success : (row.data.neutral < 0 ? UI_COLORS.danger : '#999'),
-                        opacity: row.data.neutral === 0 ? 0.3 : 1
-                      }}>
-                        {row.data.neutral > 0 && row.label !== t('game.eval.cityCompletionChance') ? `+${row.data.neutral}` : row.data.neutral}
-                        <span style={{ fontSize: '9px', fontWeight: 'normal', opacity: 0.6, marginLeft: '2px' }}> (N)</span>
-                      </span>
-                    )}
-                  </div>
-                </React.Fragment>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
+      <Scoreboard
+        gameState={gameState}
+        currentPlayer={currentPlayer}
+        isScoreboardRetractable={isScoreboardRetractable}
+        isScoreboardExpanded={isScoreboardExpanded}
+        showFieldView={showFieldView}
+        setShowFieldView={setShowFieldView}
+        showDeckViewer={showDeckViewer}
+        setShowDeckViewer={setShowDeckViewer}
+        isMuted={isMuted}
+        setIsMuted={setIsMuted}
+        showGallery={showGallery}
+        setShowGallery={setShowGallery}
+        setShowSandbox={setShowSandbox}
+      />
 
       <Board
         state={gameState}
@@ -977,8 +800,15 @@ function App() {
 
       {
         gameState.turnPhase === 'PlaceMeeple' && gameState.playerTypes[currentPlayer] === 'human' && (!onlineConfig || onlineConfig.localPlayerIds.includes(currentPlayer)) && (() => {
-          const meeplesLeft = gameState.remainingMeeples[currentPlayer]?.standard ?? 0;
-          const hasNoMeeples = meeplesLeft === 0;
+          const standardLeft = gameState.remainingMeeples[currentPlayer]?.standard ?? 0;
+          const largeLeft = gameState.remainingMeeples[currentPlayer]?.large ?? 0;
+          const hasNoMeeples = standardLeft === 0 && largeLeft === 0;
+
+          // Compute effective type for UI
+          let effectiveType = selectedMeepleType;
+          if (effectiveType === 'standard' && standardLeft === 0 && largeLeft > 0) { effectiveType = 'large'; setSelectedMeepleType('large'); }
+          if (effectiveType === 'large' && largeLeft === 0 && standardLeft > 0) { effectiveType = 'standard'; setSelectedMeepleType('standard'); }
+
           return (
             <div style={{
               position: 'absolute',
@@ -1002,6 +832,51 @@ function App() {
                   ? t('game.noMeeples', { name: gameState.playerNames[currentPlayer] || currentPlayer })
                   : t('game.placeMeeplePrompt')}
               </span>
+
+              {!hasNoMeeples && (largeLeft > 0 || standardLeft > 0) && (
+                  <div style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}>
+                      <button
+                          onClick={() => setSelectedMeepleType('standard')}
+                          disabled={standardLeft === 0}
+                          style={{
+                              display: 'flex', alignItems: 'center', gap: '6px',
+                              padding: '6px 12px', fontSize: '14px', borderRadius: '15px', border: '1px solid #ccc',
+                              background: effectiveType === 'standard' ? UI_COLORS.primary : '#f0f0f0',
+                              color: effectiveType === 'standard' ? '#fff' : (standardLeft === 0 ? '#aaa' : '#333'),
+                              cursor: standardLeft > 0 ? 'pointer' : 'default', opacity: standardLeft === 0 ? 0.5 : 1
+                          }}
+                      >
+                          <svg width="14" height="18" viewBox="-7 -10 14 20" style={{ display: 'block' }}>
+                            <circle cx="0" cy="-5" r="4" fill={PLAYER_COLORS[currentPlayer] || '#999'} stroke="#fff" strokeWidth="1.5" />
+                            <path d="M -5 8 L -3 -1 Q 0 -3 3 -1 L 5 8 L 2 8 L 1 3 L -1 3 L -2 8 Z" fill={PLAYER_COLORS[currentPlayer] || '#999'} stroke="#fff" strokeWidth="1.5" />
+                          </svg>
+                          <span style={{ fontWeight: 'bold' }}>{standardLeft}</span>
+                      </button>
+                      {(largeLeft > 0 || gameState.deck.length < 70) /* simple check to show large if ever available */ && (
+                          <button
+                              onClick={() => setSelectedMeepleType('large')}
+                              disabled={largeLeft === 0}
+                              style={{
+                                  display: 'flex', alignItems: 'center', gap: '6px',
+                                  padding: '6px 12px', fontSize: '14px', borderRadius: '15px', border: '1px solid #ccc',
+                                  background: effectiveType === 'large' ? UI_COLORS.primary : '#f0f0f0',
+                                  color: effectiveType === 'large' ? '#fff' : (largeLeft === 0 ? '#aaa' : '#333'),
+                                  cursor: largeLeft > 0 ? 'pointer' : 'default', opacity: largeLeft === 0 ? 0.5 : 1
+                              }}
+                          >
+                              <svg width="18" height="22" viewBox="-9 -12 18 24" style={{ display: 'block' }}>
+                                <g transform="scale(1.2)">
+                                  <circle cx="0" cy="-5" r="4" fill={PLAYER_COLORS[currentPlayer] || '#999'} stroke="#fff" strokeWidth="1.5" />
+                                  <path d="M -5 8 L -3 -1 Q 0 -3 3 -1 L 5 8 L 2 8 L 1 3 L -1 3 L -2 8 Z" fill={PLAYER_COLORS[currentPlayer] || '#999'} stroke="#fff" strokeWidth="1.5" />
+                                  <text x="0" y="-3.5" fontSize="4.5" fontWeight="bold" textAnchor="middle" fill="#fff">2</text>
+                                </g>
+                              </svg>
+                              <span style={{ fontWeight: 'bold' }}>{largeLeft}</span>
+                          </button>
+                      )}
+                  </div>
+              )}
+
               <div style={{ display: 'flex', gap: '10px', width: isMobile ? '100%' : 'auto' }}>
                 <button
                   onClick={handleCancelPlacement}

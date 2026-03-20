@@ -403,14 +403,17 @@ export const Board: React.FC<BoardProps> = ({ state, pan, setPan, zoom, setZoom,
                                 </span>
                                 {update.returnedMeeples.length > 0 && (
                                     <div style={{ display: 'flex', gap: '6px', marginTop: '4px' }}>
-                                        {update.returnedMeeples.map(m => (
-                                            <div key={m.meeple.id} style={{
-                                                width: 14, height: 14, borderRadius: '50%',
-                                                backgroundColor: PLAYER_COLORS[m.meeple.playerId] || '#999',
-                                                border: '2px solid white',
-                                                boxShadow: '0 1px 3px rgba(0,0,0,0.4)'
-                                            }} />
-                                        ))}
+                                        {update.returnedMeeples.map(m => {
+                                            const count = m.meeple.type === 'large' ? 2 : 1;
+                                            return Array.from({ length: count }).map((_, idx) => (
+                                                <div key={`${m.meeple.id}-${idx}`} style={{
+                                                    width: 14, height: 14, borderRadius: '50%',
+                                                    backgroundColor: PLAYER_COLORS[m.meeple.playerId] || '#999',
+                                                    border: '2px solid white',
+                                                    boxShadow: '0 1px 3px rgba(0,0,0,0.4)'
+                                                }} />
+                                            ));
+                                        })}
                                     </div>
                                 )}
                             </div>

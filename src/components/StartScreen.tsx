@@ -8,7 +8,7 @@ import { Lobby } from './Lobby';
 
 interface StartScreenProps {
     isMobile: boolean;
-    onStartGame: (playerNames: Record<number, string>, playerTypes: Record<number, PlayerType>, roomId?: string, isHost?: boolean, localPlayerIds?: PlayerId[]) => void;
+    onStartGame: (playerNames: Record<number, string>, playerTypes: Record<number, PlayerType>, roomId?: string, isHost?: boolean, localPlayerIds?: PlayerId[], useLargeMeeple?: boolean) => void;
 }
 
 const NOOB_AI_NAMES = [
@@ -112,14 +112,18 @@ export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame 
         return initial;
     });
 
-
+    const [useLargeMeeple, setUseLargeMeeple] = useState<boolean>(() => {
+        const saved = localStorage.getItem('carcassonne_largeMeeple');
+        return saved === 'true';
+    });
 
     useEffect(() => {
         localStorage.setItem('carcassonne_mode', mode);
         localStorage.setItem('carcassonne_playerCount', playerCount.toString());
         localStorage.setItem('carcassonne_names', JSON.stringify(names));
         localStorage.setItem('carcassonne_types', JSON.stringify(types));
-    }, [mode, playerCount, names, types]);
+        localStorage.setItem('carcassonne_largeMeeple', useLargeMeeple.toString());
+    }, [mode, playerCount, names, types, useLargeMeeple]);
 
 
 
@@ -156,7 +160,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame 
             filteredTypes[i] = types[i];
         }
 
-        onStartGame(filteredNames, filteredTypes);
+        onStartGame(filteredNames, filteredTypes, undefined, undefined, undefined, useLargeMeeple);
     };
 
     const toggleLanguage = () => {
@@ -442,6 +446,19 @@ export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame 
                                     </div>
                                 );
                             })}
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '16px', background: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: '8px' }}>
+                            <input
+                                type="checkbox"
+                                id="largeMeepleToggle"
+                                checked={useLargeMeeple}
+                                onChange={(e) => setUseLargeMeeple(e.target.checked)}
+                                style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                            />
+                            <label htmlFor="largeMeepleToggle" style={{ fontSize: '15px', color: '#eee', cursor: 'pointer', fontWeight: 'bold' }}>
+                                {t('startScreen.largeMeepleOption', 'Enable Large Meeple')}
+                            </label>
                         </div>
                     </div>
                 )}

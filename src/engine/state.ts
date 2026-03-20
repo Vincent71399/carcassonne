@@ -18,7 +18,8 @@ import {
 
 export function createInitialState(
     playerNames: Record<PlayerId, string>,
-    playerTypes: Record<PlayerId, PlayerType>
+    playerTypes: Record<PlayerId, PlayerType>,
+    useLargeMeeple: boolean = false
 ): GameState {
     const players = Object.keys(playerNames).map(Number).sort();
     const deck = generateDeck();
@@ -53,7 +54,7 @@ export function createInitialState(
     };
 
     for (const p of players) {
-        state.remainingMeeples[p] = { standard: 7, large: 1, builder: 1, pig: 1, abbott: 1 };
+        state.remainingMeeples[p] = { standard: 7, large: useLargeMeeple ? 1 : 0, builder: 1, pig: 1, abbott: 1 };
         state.scores[p] = 0;
         state.midGameScores[p] = 0;
         state.midGameScoreBreakdown[p] = { city: 0, road: 0, monastery: 0, field: 0 };

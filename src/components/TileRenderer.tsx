@@ -289,19 +289,23 @@ export const TileRenderer: React.FC<TileRendererProps> = ({
                     if (!spot) return null;
                     const color = PLAYER_COLORS[pm.meeple.playerId] || '#999';
                     const isFarmer = pm.featureId.startsWith('field');
+                    const isLarge = pm.meeple.type === 'large';
+                    const scaleStr = isLarge ? ' scale(1.7)' : '';
                     return (
-                        <g key={`meeple-${idx}`} transform={`translate(${spot.x}, ${spot.y}) rotate(${-rotation * 90})`}>
+                        <g key={`meeple-${idx}`} transform={`translate(${spot.x}, ${spot.y}) rotate(${-rotation * 90})${scaleStr}`}>
                             {isFarmer ? (
                                 /* Farmer: lying down meeple (horizontal ellipse) */
                                 <>
                                     <ellipse cx="0" cy="0" rx="8" ry="5" fill={color} stroke="#fff" strokeWidth="1.5" />
                                     <circle cx="-6" cy="0" r="3" fill={color} stroke="#fff" strokeWidth="1" />
+                                    {isLarge && <text x="-6" y="1.5" fontSize="4.5" fontWeight="bold" textAnchor="middle" fill="#fff" transform="rotate(90 -6 0)">2</text>}
                                 </>
                             ) : (
                                 /* Standing meeple */
                                 <>
                                     <circle cx="0" cy="-5" r="4" fill={color} stroke="#fff" strokeWidth="1.5" />
                                     <path d="M -5 8 L -3 -1 Q 0 -3 3 -1 L 5 8 L 2 8 L 1 3 L -1 3 L -2 8 Z" fill={color} stroke="#fff" strokeWidth="1" />
+                                    {isLarge && <text x="0" y="-3.5" fontSize="4.5" fontWeight="bold" textAnchor="middle" fill="#fff">2</text>}
                                 </>
                             )}
                         </g>
