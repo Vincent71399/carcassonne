@@ -358,7 +358,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame 
                 </div>
 
                 {mode === 'online' && (
-                    <Lobby onStartGame={onStartGame} onBack={() => setMode('local')} />
+                    <Lobby onStartGame={onStartGame} onBack={() => setMode('local')} useLargeMeeple={useLargeMeeple} />
                 )}
 
                 {/* Player Settings */}

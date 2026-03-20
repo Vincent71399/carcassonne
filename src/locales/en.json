@@ -154,6 +154,9 @@
         "leaveRoom": "Leave Room",
         "errorOccurred": "An error occurred",
         "roomClosed": "Room was closed",
-        "hostClosedRoom": "The host has closed the room."
+        "hostClosedRoom": "The host has closed the room.",
+        "largeMeepleLabel": "Large Meeple Feature:",
+        "largeMeepleEnabled": "Enabled",
+        "largeMeepleDisabled": "Disabled"
     }
 }

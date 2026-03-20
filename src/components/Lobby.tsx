@@ -7,13 +7,14 @@ import { type PlayerId, type PlayerType } from '../engine/types';
 import { getActiveRoomForUser, leaveWaitingRoom } from '../firebase/rooms';
 
 interface LobbyProps {
-    onStartGame: (playerNames: Record<number, string>, playerTypes: Record<number, PlayerType>, roomId: string, isHost: boolean, localPlayerIds: PlayerId[]) => void;
+    onStartGame: (playerNames: Record<number, string>, playerTypes: Record<number, PlayerType>, roomId: string, isHost: boolean, localPlayerIds: PlayerId[], useLargeMeeple?: boolean) => void;
     onBack: () => void;
+    useLargeMeeple: boolean;
 }
 
 const alertMappedId = (idx: number) => (idx + 1) as PlayerId;
 
-export const Lobby: React.FC<LobbyProps> = ({ onStartGame, onBack }) => {
+export const Lobby: React.FC<LobbyProps> = ({ onStartGame, onBack, useLargeMeeple: localUseLargeMeeple }) => {
     const { user } = useAuth();
     const { t } = useTranslation();
     const [rooms, setRooms] = useState<Room[]>([]);
@@ -24,6 +25,7 @@ export const Lobby: React.FC<LobbyProps> = ({ onStartGame, onBack }) => {
     // Create Room Form
     const [createPasscode, setCreatePasscode] = useState('');
     const [createCount, setCreateCount] = useState(2);
+    const [createUseLargeMeeple, setCreateUseLargeMeeple] = useState(localUseLargeMeeple);
     
     // Join Room Form
     const [joinPasscode, setJoinPasscode] = useState('');
@@ -77,7 +79,7 @@ export const Lobby: React.FC<LobbyProps> = ({ onStartGame, onBack }) => {
                             if (p.uid === user?.uid) localPlayerIds.push(pId);
                         });
                         const isHost = room.creatorId === user?.uid;
-                        onStartGame(pNames, pTypes, room.id, isHost, localPlayerIds);
+                        onStartGame(pNames, pTypes, room.id, isHost, localPlayerIds, room.useLargeMeeple);
                     }
                 }
             });
@@ -89,7 +91,7 @@ export const Lobby: React.FC<LobbyProps> = ({ onStartGame, onBack }) => {
         if (!user) return;
         try {
             setError(null);
-            const id = await createRoom(user.uid, user.displayName || user.email?.split('@')[0] || 'Player', createPasscode, createCount);
+            const id = await createRoom(user.uid, user.displayName || user.email?.split('@')[0] || 'Player', createPasscode, createCount, createUseLargeMeeple);
             setCurrentRoomId(id);
             setView('room');
         } catch (err: unknown) {
@@ -213,6 +215,19 @@ export const Lobby: React.FC<LobbyProps> = ({ onStartGame, onBack }) => {
                     <label style={{ color: '#eee', fontSize: '14px', marginTop: '10px' }}>{t('lobby.passcodeLabel')}</label>
                     <input type="text" value={createPasscode} onChange={e => setCreatePasscode(e.target.value)} placeholder={t('lobby.passcodePlaceholder')} style={{ padding: '12px', borderRadius: '6px', border: 'none' }} />
 
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '15px', background: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: '8px' }}>
+                        <input
+                            type="checkbox"
+                            id="createLargeMeepleToggle"
+                            checked={createUseLargeMeeple}
+                            onChange={(e) => setCreateUseLargeMeeple(e.target.checked)}
+                            style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                        />
+                        <label htmlFor="createLargeMeepleToggle" style={{ fontSize: '15px', color: '#eee', cursor: 'pointer', fontWeight: 'bold' }}>
+                            {t('startScreen.largeMeepleOption', 'Enable Large Meeple')}
+                        </label>
+                    </div>
+
                     <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
                         <button onClick={handleCreateRoom} style={{ flex: 2, padding: '12px', background: '#2ecc71', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>{t('lobby.createBtn')}</button>
                         <button onClick={() => setView('list')} style={{ flex: 1, padding: '12px', background: 'transparent', color: '#ccc', border: '1px solid #ccc', borderRadius: '6px', cursor: 'pointer' }}>{t('lobby.cancel')}</button>
@@ -235,6 +250,35 @@ export const Lobby: React.FC<LobbyProps> = ({ onStartGame, onBack }) => {
                                 {p.isAi && <span style={{ color: '#f1c40f', fontSize: '12px' }}>{t('lobby.aiLabel', { difficulty: p.aiDifficulty })}</span>}
                             </div>
                         ))}
+                    </div>
+
+                    <div style={{ background: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: '8px', marginTop: '10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: '14px', color: '#eee', fontWeight: 'bold' }}>{t('lobby.largeMeepleLabel')}</span>
+                        {currentRoom.creatorId === user?.uid ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <input
+                                    type="checkbox"
+                                    id="lobbyLargeMeepleToggle"
+                                    checked={currentRoom.useLargeMeeple}
+                                    onChange={async (e) => {
+                                        try {
+                                            const { updateRoomSettings } = await import('../firebase/rooms');
+                                            await updateRoomSettings(currentRoomId!, { useLargeMeeple: e.target.checked });
+                                        } catch (err) {
+                                            setError(err instanceof Error ? err.message : t('lobby.errorOccurred'));
+                                        }
+                                    }}
+                                    style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                                />
+                                <label htmlFor="lobbyLargeMeepleToggle" style={{ fontSize: '14px', color: '#fff', cursor: 'pointer' }}>
+                                    {currentRoom.useLargeMeeple ? t('lobby.largeMeepleEnabled') : t('lobby.largeMeepleDisabled')}
+                                </label>
+                            </div>
+                        ) : (
+                            <span style={{ fontSize: '14px', color: currentRoom.useLargeMeeple ? '#2ecc71' : '#e74c3c', fontWeight: 'bold' }}>
+                                {currentRoom.useLargeMeeple ? t('lobby.largeMeepleEnabled') : t('lobby.largeMeepleDisabled')}
+                            </span>
+                        )}
                     </div>
 
                     {!isFull && currentRoom.creatorId === user?.uid && (

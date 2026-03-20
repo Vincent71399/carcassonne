@@ -19,6 +19,7 @@ export interface Room {
     lastUpdatedByUid?: string;
     gameState?: GameState;
     gameStatePayload?: string;
+    useLargeMeeple?: boolean;
     createdAt: FieldValue | Timestamp | null;
 }
 
@@ -26,7 +27,8 @@ export const createRoom = async (
     creatorId: string,
     creatorName: string,
     passcode: string,
-    playerCount: number
+    playerCount: number,
+    useLargeMeeple: boolean = false
 ): Promise<string> => {
     const existing = await getActiveRoomForUser(creatorId);
     if (existing) throw new Error("You are already in an active room");
@@ -37,6 +39,7 @@ export const createRoom = async (
         passcode,
         status: 'waiting',
         playerCount,
+        useLargeMeeple,
         players: [{ uid: creatorId, name: creatorName, isAi: false }],
         playerUids: [creatorId],
         createdAt: serverTimestamp()
@@ -98,6 +101,14 @@ export const startGameInRoom = async (
         status: 'playing',
         gameStatePayload: JSON.stringify(initialGameState)
     });
+};
+
+export const updateRoomSettings = async (
+    roomId: string,
+    settings: Partial<Room>
+): Promise<void> => {
+    const roomRef = doc(db, 'rooms', roomId);
+    await updateDoc(roomRef, settings);
 };
 
 export const updateRoomGameState = async (

@@ -154,6 +154,9 @@
         "leaveRoom": "离开房间",
         "errorOccurred": "发生错误",
         "roomClosed": "房间已关闭",
-        "hostClosedRoom": "房主已关闭房间。"
+        "hostClosedRoom": "房主已关闭房间。",
+        "largeMeepleLabel": "大随从功能:",
+        "largeMeepleEnabled": "开启",
+        "largeMeepleDisabled": "关闭"
     }
 }
