@@ -106,3 +106,38 @@ export interface GameState {
         cityOpenEdgeDelta: Record<PlayerId | 'neutral', number>;
     };
 }
+
+export interface AIWeights {
+    SCORE_GAIN: number;
+    CITY_IN_PROGRESS: number;
+    ROAD_IN_PROGRESS: number;
+    MONASTERY_IN_PROGRESS: number;
+    FIELD: number;
+    MEEPLE_USAGE: number;
+    CITY_ATTACK: number;
+    ROAD_ATTACK: number;
+    FIELD_ATTACK: number;
+
+    OPPONENT_SCORE_GAIN: number;
+    OPPONENT_CITY_IN_PROGRESS: number;
+    OPPONENT_ROAD_IN_PROGRESS: number;
+    OPPONENT_MONASTERY_IN_PROGRESS: number;
+    OPPONENT_FIELD: number;
+    OPPONENT_MEEPLE_USAGE: number;
+    OPPONENT_CITY_ATTACK: number;
+    OPPONENT_ROAD_ATTACK: number;
+    OPPONENT_FIELD_ATTACK: number;
+
+    NEUTRAL_CITY_IN_PROGRESS: number;
+    NEUTRAL_ROAD_IN_PROGRESS: number;
+    NEUTRAL_FIELD: number;
+
+    FIELD_SCORE_INITIAL_MULTIPLIER: number;
+    CITY_OPEN_EDGE: number;
+    OPPONENT_CITY_OPEN_EDGE: number;
+
+    MEEPLE_PLACEMENT: number[];
+    EXTRA_POINT_ONE_SIDE_CITY_PLAYER: number;
+    EXTRA_POINT_ONE_SIDE_CITY_NEUTRAL: number;
+    FIELD_MULTIPLIER: number;
+}

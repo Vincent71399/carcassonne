@@ -1,7 +1,7 @@
-import type { GameState, PlayerId, PlacedTile, FeatureType, EdgeDirection, TileDefinition } from './types';
+import type { GameState, PlayerId, PlacedTile, FeatureType, EdgeDirection, TileDefinition, AIWeights } from './types';
 import { evaluateFeature, evaluateMonastery, type FeatureEvaluation } from './features';
 import { TILES_MAP } from './tiles';
-import { AI_CONSTANTS_EXPERIMENT } from './aiConstants';
+
 import { isValidPlacement, rotateEdges } from './board';
 
 export interface AITurnContext {
@@ -247,8 +247,10 @@ export function evaluateFieldAttack(
                             // Joining an existing field always adds the attacker to the set of winners.
                             // If the attacker was ALREADY a winner (shared), joining doesn't change points for them.
                             
-                            const A_gain = A_is_already_winner ? 0 : citiesGainedByAttacker.size * 3 * pFactor;
-                            const O_loss = (A_total > O_count) ? targetCities.size * 3 * pFactor : 0;
+                            const fieldMultiplier = 3; // Default or from context?
+                            
+                            const A_gain = A_is_already_winner ? 0 : citiesGainedByAttacker.size * fieldMultiplier * pFactor;
+                            const O_loss = (A_total > O_count) ? targetCities.size * fieldMultiplier * pFactor : 0;
 
                             if (A_gain > 0) results[attackerId] = Math.max(results[attackerId], A_gain);
                             if (O_loss > 0) results[targetOwnerId] = Math.min(results[targetOwnerId], -O_loss) || 0;
@@ -287,9 +289,10 @@ function getFieldCities(ev: FeatureEvaluation, board: GameState['board']): Set<s
  */
 export function evaluateMeepleUsage(
     countBefore: number,
-    countAfter: number
+    countAfter: number,
+    meepleWeights?: number[]
 ): number {
-    const weights = AI_CONSTANTS_EXPERIMENT.MEEPLE_PLACEMENT;
+    const weights = meepleWeights || [3, 1.5, 1, 0.5, 0.5, 0.5, 0.5];
     let score = 0;
 
     if (countAfter < countBefore) {
@@ -401,9 +404,10 @@ export function evaluateGainScoreCity_InProgress(
     x: number,
     y: number,
     players: PlayerId[],
-    context?: AITurnContext
+    context?: AITurnContext,
+    weights?: Partial<AIWeights>
 ): Record<PlayerId | 'neutral', number> {
-    return calculateInProgressDelta(originalBoard, simBoard, x, y, 'city', players, context);
+    return calculateInProgressDelta(originalBoard, simBoard, x, y, 'city', players, context, weights);
 }
 
 /**
@@ -415,9 +419,10 @@ export function evaluateGainScoreRoad_InProgress(
     x: number,
     y: number,
     players: PlayerId[],
-    context?: AITurnContext
+    context?: AITurnContext,
+    weights?: Partial<AIWeights>
 ): Record<PlayerId | 'neutral', number> {
-    return calculateInProgressDelta(originalBoard, simBoard, x, y, 'road', players, context);
+    return calculateInProgressDelta(originalBoard, simBoard, x, y, 'road', players, context, weights);
 }
 
 /**
@@ -957,10 +962,11 @@ export function evaluateGainScoreField(
     _x: number,
     _y: number,
     players: PlayerId[],
-    context?: AITurnContext
+    context?: AITurnContext,
+    weights?: Partial<AIWeights>
 ): Record<PlayerId | 'neutral', number> {
-    const scoreBefore = context ? context.baseFieldScore : calculateFieldScore(originalBoard, players);
-    const scoreAfter = calculateFieldScore(simBoard, players);
+    const scoreBefore = context ? context.baseFieldScore : calculateFieldScore(originalBoard, players, weights);
+    const scoreAfter = calculateFieldScore(simBoard, players, weights);
 
     const results: Record<PlayerId | 'neutral', number> = { neutral: scoreAfter.neutral - scoreBefore.neutral };
     players.forEach(p => {
@@ -1002,7 +1008,8 @@ function calculateInProgressDelta(
     y: number,
     type: 'city' | 'road',
     players: PlayerId[],
-    context?: AITurnContext
+    context?: AITurnContext,
+    weights?: Partial<AIWeights>
 ): Record<PlayerId | 'neutral', number> {
     const scoreBefore = context ? (type === 'city' ? context.baseCityInProgress : context.baseRoadInProgress) : calculateTotalInProgress(originalBoard, players, type);
     const scoreAfter = calculateTotalInProgress(simBoard, players, type);
@@ -1027,9 +1034,9 @@ function calculateInProgressDelta(
 
                         winners.forEach(w => {
                             if (w === 'neutral') {
-                                results['neutral'] += AI_CONSTANTS_EXPERIMENT.EXTRA_POINT_ONE_SIDE_CITY_NEUTRAL;
+                                results['neutral'] += weights?.EXTRA_POINT_ONE_SIDE_CITY_NEUTRAL ?? 1;
                             } else {
-                                results[w] += AI_CONSTANTS_EXPERIMENT.EXTRA_POINT_ONE_SIDE_CITY_PLAYER;
+                                results[w] += weights?.EXTRA_POINT_ONE_SIDE_CITY_PLAYER ?? 0.5;
                             }
                         });
                     }
@@ -1104,8 +1111,10 @@ function calculateTotalInProgress(
 
 function calculateFieldScore(
     board: GameState['board'],
-    players: PlayerId[]
+    players: PlayerId[],
+    weights?: Partial<AIWeights>
 ): Record<PlayerId | 'neutral', number> {
+    const fieldMultiplier = weights?.FIELD_MULTIPLIER ?? 3;
     const scoredFields = new Set<string>();
     const results: Record<PlayerId | 'neutral', number> = { neutral: 0 };
     players.forEach(p => { results[p] = 0; });
@@ -1145,7 +1154,7 @@ function calculateFieldScore(
                     }
                 }
             });
-            const fieldPoints = adjacentCityKeys.size * 3;
+            const fieldPoints = adjacentCityKeys.size * fieldMultiplier;
 
             winners.forEach(w => {
                 if (w === 'neutral') {

@@ -1,4 +1,4 @@
-import type { GameState, PlayerId, PlacedTile, TileDefinition, PlayerType } from './types';
+import type { GameState, PlayerId, PlacedTile, TileDefinition, PlayerType, AIWeights } from './types';
 import { getValidPlacements } from './board';
 
 import { AI_CONSTANTS, AI_CONSTANTS_EXPERIMENT } from './aiConstants';
@@ -50,35 +50,6 @@ function getAiWeights(type: PlayerType): AIWeights | null {
     return null;
 }
 
-export interface AIWeights {
-    SCORE_GAIN: number;
-    CITY_IN_PROGRESS: number;
-    ROAD_IN_PROGRESS: number;
-    MONASTERY_IN_PROGRESS: number;
-    FIELD: number;
-    MEEPLE_USAGE: number;
-    CITY_ATTACK: number;
-    ROAD_ATTACK: number;
-    FIELD_ATTACK: number;
-
-    OPPONENT_SCORE_GAIN: number;
-    OPPONENT_CITY_IN_PROGRESS: number;
-    OPPONENT_ROAD_IN_PROGRESS: number;
-    OPPONENT_MONASTERY_IN_PROGRESS: number;
-    OPPONENT_FIELD: number;
-    OPPONENT_MEEPLE_USAGE: number;
-    OPPONENT_CITY_ATTACK: number;
-    OPPONENT_ROAD_ATTACK: number;
-    OPPONENT_FIELD_ATTACK: number;
-
-    NEUTRAL_CITY_IN_PROGRESS: number;
-    NEUTRAL_ROAD_IN_PROGRESS: number;
-    NEUTRAL_FIELD: number;
-
-    FIELD_SCORE_INITIAL_MULTIPLIER: number;
-    CITY_OPEN_EDGE: number;
-    OPPONENT_CITY_OPEN_EDGE: number;
-}
 
 function calculateWeightedScore(
     state: GameState,
@@ -96,10 +67,10 @@ function calculateWeightedScore(
 
     // Categories from evaluators
     const complete = experimental.evaluateGainScoreComplete(simBoard, x, y, simTile, players);
-    const cityInProgress = experimental.evaluateGainScoreCity_InProgress(state.board, simBoard, x, y, players, context);
-    const roadInProgress = experimental.evaluateGainScoreRoad_InProgress(state.board, simBoard, x, y, players, context);
+    const cityInProgress = experimental.evaluateGainScoreCity_InProgress(state.board, simBoard, x, y, players, context, weights);
+    const roadInProgress = experimental.evaluateGainScoreRoad_InProgress(state.board, simBoard, x, y, players, context, weights);
     const monasteryInProgress = experimental.evaluateGainScoreMonastery_InProgress(state.board, simBoard, x, y, players, context);
-    const field = experimental.evaluateGainScoreField(state.board, simBoard, x, y, players, context);
+    const field = experimental.evaluateGainScoreField(state.board, simBoard, x, y, players, context, weights);
 
     // Meeple usage (approximate: only for active player)
     // We count a simple delta: -1 if meeple placed, +X if any features were completed.
@@ -113,7 +84,7 @@ function calculateWeightedScore(
     const countAfter = countBefore - (meepleFeatureId ? 1 : 0) + returnedMeeples;
 
     // experimental.evaluateMeepleUsage is quite sophisticated about "weights".
-    const meepleUsageScore = experimental.evaluateMeepleUsage(countBefore, countAfter);
+    const meepleUsageScore = experimental.evaluateMeepleUsage(countBefore, countAfter, weights.MEEPLE_PLACEMENT);
 
     const cityAttack = experimental.evaluateCityAttack(simBoard, aiPlayerId, players, { x, y }, state.hands[aiPlayerId], state.deck, context);
     const roadAttack = experimental.evaluateRoadAttack(simBoard, aiPlayerId, players, { x, y }, state.hands[aiPlayerId], state.deck, context);
