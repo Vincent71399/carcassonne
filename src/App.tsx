@@ -158,6 +158,7 @@ function App() {
   const previousPlayerIndex = useRef<number | null>(null);
   const previousTurnPhase = useRef<GameState['turnPhase'] | null>(null);
   const gameStateRef = useRef<GameState | null>(null);
+  const lastFocusedTileId = useRef<string | null>(null);
   const [systemMessage, setSystemMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -309,8 +310,13 @@ function App() {
         }
         // Center board on opponent's newly placed tile
         if (room.gameState.recentTilePosition) {
-          setAiFocusTarget(room.gameState.recentTilePosition);
-          setTimeout(() => setAiFocusTarget(null), 1500);
+          const { x, y } = room.gameState.recentTilePosition;
+          const recentTile = room.gameState.board[`${x},${y}`];
+          if (recentTile && lastFocusedTileId.current !== recentTile.id) {
+            lastFocusedTileId.current = recentTile.id;
+            setAiFocusTarget(room.gameState.recentTilePosition);
+            setTimeout(() => setAiFocusTarget(null), 1500);
+          }
         }
         // Always accept state from the other player
         setGameState(room.gameState);

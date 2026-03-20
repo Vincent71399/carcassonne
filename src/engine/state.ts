@@ -224,7 +224,6 @@ export function advanceTurn(state: GameState) {
     const totalCardsLeft = Object.values(state.hands).reduce((s, h) => s + h.length, 0) + state.deck.length;
     if (totalCardsLeft === 0) { _startEndGameQueue(state); return; }
 
-    state.recentTilePosition = null;
     state.currentPlayerIndex = (state.currentPlayerIndex + 1) % state.players.length;
 
     // Check if the NEW current player has ANY playable tiles
