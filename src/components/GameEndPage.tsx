@@ -149,14 +149,14 @@ export const GameEndPage: React.FC<GameEndPageProps> = ({
           });
         })()}
       </div>
-      <div style={{ display: 'flex', gap: '2vw', flexWrap: 'wrap', justifyContent: 'center' }}>
+      <div style={{ display: 'flex', gap: 'min(2vw, 8px)', flexWrap: 'wrap', justifyContent: 'center', padding: '0 5px' }}>
         <button
           onClick={() => {
             setShowBoardPostGame(true);
             setShowFieldView(true);
           }}
           style={{
-            padding: '10px 20px', fontSize: 'min(16px, 2vh)', fontWeight: 'bold',
+            padding: 'min(10px, 1.5vh) min(12px, 2vw)', fontSize: 'clamp(11px, 3.5vw, 15px)', fontWeight: 'bold',
             background: 'rgba(255,255,255,0.1)',
             color: '#ddd', border: '1px solid #555', borderRadius: 12, cursor: 'pointer',
             transition: 'all 0.15s'
@@ -170,7 +170,7 @@ export const GameEndPage: React.FC<GameEndPageProps> = ({
           <button
             onClick={handlePlayAgain}
             style={{
-              padding: '10px 30px', fontSize: 'min(18px, 2.2vh)', fontWeight: 'bold',
+              padding: 'min(10px, 1.5vh) min(16px, 3vw)', fontSize: 'clamp(13px, 4vw, 17px)', fontWeight: 'bold',
               background: `linear-gradient(90deg, ${UI_COLORS.primary}, ${UI_COLORS.primaryLight})`,
               color: '#fff', border: 'none', borderRadius: 12, cursor: 'pointer',
               boxShadow: '0 4px 20px rgba(33,150,243,0.5)',
@@ -185,10 +185,11 @@ export const GameEndPage: React.FC<GameEndPageProps> = ({
         <button
           onClick={handleBackToMainMenu}
           style={{
-            padding: '10px 18px', fontSize: 'min(14px, 1.8vh)', fontWeight: 'bold',
+            padding: 'min(10px, 1.5vh) min(10px, 2vw)', fontSize: 'clamp(10px, 3vw, 13px)', fontWeight: 'bold',
             background: 'rgba(255,255,255,0.05)',
             color: '#bbb', border: '1px solid #444', borderRadius: 12, cursor: 'pointer',
-            transition: 'all 0.15s'
+            transition: 'all 0.15s',
+            whiteSpace: 'nowrap'
           }}
           onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; e.currentTarget.style.color = '#fff'; }}
           onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = '#bbb'; }}
