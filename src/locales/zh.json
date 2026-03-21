@@ -16,7 +16,8 @@
         "howToPlay": "游戏玩法 ❔",
         "author": "作者: vincent71399",
         "aiMarker": "(电脑)",
-        "computer": "电脑"
+        "computer": "电脑",
+        "largeMeepleOption": "开启大随从功能"
     },
     "game": {
         "scoreboard": "计分板",
@@ -95,7 +96,7 @@
         "placingTilesTitle": "放置板块",
         "placingTilesContent": "边缘必须匹配：道路连接道路，城堡连接城堡，草地连接草地。绿色方块显示您的当前板块（在角落）可以正确放置的位置。",
         "deployingMeeplesTitle": "部署随从",
-        "deployingMeeplesContent": "放置板块后，您可以放置一个随从以“占领”该设施。他们帮助您控制道路 and 城堡。注意角落里的随从，正等待部署到闪烁的斑点！",
+        "deployingMeeplesContent": "放置板块后，您可以放置一个随从以“占领”该设施。他们帮助您控制道路和城堡。注意角落里的随从，正等待部署到闪烁的斑点！",
         "scoringPointsTitle": "计分原则",
         "scoringPointsContent": "设施完成后（例如这个封闭的城堡），您将取回您的随从并立即得分。像这样的大城堡每块板块价值 2 分！",
         "powerOfFarmersTitle": "农夫的力量",

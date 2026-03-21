@@ -16,7 +16,8 @@
         "howToPlay": "How to Play ❔",
         "author": "author: vincent71399",
         "aiMarker": "(AI)",
-        "computer": "Computer"
+        "computer": "Computer",
+        "largeMeepleOption": "Enable Large Meeple"
     },
     "game": {
         "scoreboard": "Scoreboard",

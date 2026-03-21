@@ -193,7 +193,7 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({ isMobile, onClose 
                         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
                     }}>
                         {step.title}
-                        {step.title === "Deploying Meeples" && (
+                        {currentStep === 2 && (
                             <svg width="24" height="24" viewBox="-8 -12 16 24" style={{ overflow: 'visible' }}>
                                 <circle cx="0" cy="-5" r="4" fill="#e74c3c" stroke="#fff" strokeWidth="1.5" />
                                 <path d="M -5 8 L -3 -1 Q 0 -3 3 -1 L 5 8 L 2 8 L 1 3 L -1 3 L -2 8 Z" fill="#e74c3c" stroke="#fff" strokeWidth="1" />
