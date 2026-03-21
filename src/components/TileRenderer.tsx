@@ -298,7 +298,7 @@ export const TileRenderer: React.FC<TileRendererProps> = ({
                                 <>
                                     <ellipse cx="0" cy="0" rx="8" ry="5" fill={color} stroke="#fff" strokeWidth="1.5" />
                                     <circle cx="-6" cy="0" r="3" fill={color} stroke="#fff" strokeWidth="1" />
-                                    {isLarge && <text x="-6" y="1.5" fontSize="4.5" fontWeight="bold" textAnchor="middle" fill="#fff" transform="rotate(90 -6 0)">2</text>}
+                                    {isLarge && <text x="0" y="0" fontSize="4.5" fontWeight="bold" textAnchor="middle" alignmentBaseline="central" fill="#fff">2</text>}
                                 </>
                             ) : (
                                 /* Standing meeple */
