@@ -171,6 +171,14 @@ export function evaluateFieldAttack(
                 matchingAttackerEdges.forEach(attackerEdge => {
                     const connectingTiles = findConnectingFieldTiles(board, jx, jy, targetEdge.segment, attackerEdge.segment, hand, deck);
                     if (connectingTiles.count > 0) {
+                        const attackerFeature = attackerFeatures.find(af =>
+                            getOpenFieldEdges(af, board).some(oe => oe.x === attackerEdge.x && oe.y === attackerEdge.y && oe.segment === attackerEdge.segment)
+                        );
+                        let O_gain = 0;
+                        if (attackerFeature) {
+                            O_gain = getFieldCities(attackerFeature, board).size * 3 * (connectingTiles.inHand ? 1 : calculatePossibilityFactor(connectingTiles.count, deck.length, allPlayerIds.length));
+                        }
+
                         const attackerMeeplesPerPid: Record<PlayerId, number> = {};
                         allPlayerIds.forEach(pid => { attackerMeeplesPerPid[pid] = 0; });
 
@@ -205,7 +213,7 @@ export function evaluateFieldAttack(
                         const A_total = attackerMeeplesPerPid[attackerId] || 0;
                         const O_count = Math.max(...allPlayerIds.filter(pid => pid !== attackerId).map(pid => attackerMeeplesPerPid[pid] || 0), 0);
 
-                        if (A_total >= O_count) {
+                        if (A_total >= O_count || O_count >= A_total) {
                             const pFactor = connectingTiles.inHand ? 1 :
                                 calculatePossibilityFactor(connectingTiles.count, deck.length, allPlayerIds.length);
 
@@ -223,37 +231,20 @@ export function evaluateFieldAttack(
                                 if (!attackerAlreadyControlledCities.has(cKey)) {
                                     citiesGainedByAttacker.add(cKey);
                                 }
-                                
-                                // A city is lost by the opponent if the attacker becomes the sole winner or a sharer
-                                // in a way that reduces the opponent's relative ownership (though in Carcassonne 
-                                // you only lose points if you are no longer a winner).
                             });
 
                             const A_is_already_winner = targetWinners.includes(attackerId);
                             
-                            if (citiesGainedByAttacker.size === 0 && !A_is_already_winner) {
-                                // If no new cities are gained, and we weren't a winner before,
-                                // we might still be gaining a share of points? 
-                                // Actually, if we weren't a winner, and we gain NO cities,
-                                // it means the target field touches NO cities we don't already touch.
-                                // BUT! We might be gaining the points for those cities if we were previously
-                                // NOT getting them from our own field?
-                                // No, attackerAlreadyControlledCities includes all cities P1 gets points for.
-                                // So if citiesGainedByAttacker is empty, we gain 0 points.
+                            if (citiesGainedByAttacker.size === 0 && !A_is_already_winner && O_gain === 0) {
                                 return; 
                             }
 
-                            // Only count as attack if the set of winners for the target field's cities changes.
-                            // Joining an existing field always adds the attacker to the set of winners.
-                            // If the attacker was ALREADY a winner (shared), joining doesn't change points for them.
-                            
                             const fieldMultiplier = 3; // Default or from context?
                             
                             const A_gain = A_is_already_winner ? 0 : citiesGainedByAttacker.size * fieldMultiplier * pFactor;
-                            const O_loss = (A_total > O_count) ? targetCities.size * fieldMultiplier * pFactor : 0;
 
-                            if (A_gain > 0) results[attackerId] = Math.max(results[attackerId], A_gain);
-                            if (O_loss > 0) results[targetOwnerId] = Math.min(results[targetOwnerId], -O_loss) || 0;
+                            if (A_gain > 0 && A_total >= O_count) results[attackerId] = Math.max(results[attackerId], A_gain);
+                            if (O_gain > 0 && O_count >= A_total) results[targetOwnerId] = Math.max(results[targetOwnerId], O_gain);
                         }
                     }
                 });
@@ -290,15 +281,17 @@ function getFieldCities(ev: FeatureEvaluation, board: GameState['board']): Set<s
 export function evaluateMeepleUsage(
     countBefore: number,
     countAfter: number,
-    meepleWeights?: number[]
+    meepleWeights?: number[],
+    isLargePlaced: boolean = false,
+    largeCost: number = 0
 ): number {
-    const weights = meepleWeights || [3, 1.5, 1, 0.5, 0.5, 0.5, 0.5];
+    const weights = meepleWeights || [3, 1.5, 1, 0.5, 0.5, 0.5, 0.5, 0.5];
     let score = 0;
 
     if (countAfter < countBefore) {
         // Meeples were used
         for (let i = countBefore; i > countAfter; i--) {
-            // i is the rank (1-7). Index is i-1.
+            // i is the rank. Index is i-1.
             const weight = weights[i - 1] || 0.5;
             score -= weight;
         }
@@ -308,6 +301,10 @@ export function evaluateMeepleUsage(
             const weight = weights[i - 1] || 0.5;
             score += weight;
         }
+    }
+
+    if (isLargePlaced) {
+        score -= largeCost;
     }
 
     return score;
@@ -570,12 +567,6 @@ export function evaluateCityAttack(
                         if (O_count >= A_total) {
                             results[targetOwnerId] = Math.max(results[targetOwnerId], attackerCityValue * pFactor);
                         }
-
-                        // Owner Loss (if attacker wins)
-                        if (A_total > O_count) {
-                            const newLoss = -targetValue * pFactor;
-                            results[targetOwnerId] = Math.min(results[targetOwnerId] || 0, newLoss);
-                        }
                     }
                 });
             }
@@ -705,12 +696,6 @@ export function evaluateRoadAttack(
                         // Opponent Gain
                         if (O_count >= A_total) {
                             results[targetOwnerId] = Math.max(results[targetOwnerId], attackerRoadValue * pFactor);
-                        }
-
-                        // Owner Loss
-                        if (A_total > O_count) {
-                            const newLoss = -targetValue * pFactor;
-                            results[targetOwnerId] = Math.min(results[targetOwnerId] || 0, newLoss);
                         }
                     }
                 });

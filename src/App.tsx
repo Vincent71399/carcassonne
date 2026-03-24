@@ -174,7 +174,7 @@ function App() {
   const [zoom, setZoom] = useState(1);
 
   // We need to remember what the AI decided to do with its meeple when it calculated the tile placement
-  const [pendingAIMove, setPendingAIMove] = useState<{ meeplePlacement?: { featureId: string } } | null>(null);
+  const [pendingAIMove, setPendingAIMove] = useState<{ meeplePlacement?: { featureId: string; meepleType: MeepleType } } | null>(null);
   const [isAiThinking, setIsAiThinking] = useState(false);
   const [aiFocusTarget, setAiFocusTarget] = useState<{ x: number, y: number } | null>(null);
 
@@ -520,7 +520,7 @@ function App() {
 
         // To ensure the state machine moves forward
         if (pendingAIMove?.meeplePlacement) {
-          placeMeeple(newState, currentPlayer, pendingAIMove.meeplePlacement.featureId);
+          placeMeeple(newState, currentPlayer, pendingAIMove.meeplePlacement.featureId, pendingAIMove.meeplePlacement.meepleType);
         } else {
           skipMeeple(newState, currentPlayer);
         }

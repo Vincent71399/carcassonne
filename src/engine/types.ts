@@ -137,6 +137,10 @@ export interface AIWeights {
     OPPONENT_CITY_OPEN_EDGE: number;
 
     MEEPLE_PLACEMENT: number[];
+    LARGER_MEEPLE_COST?: number;
+    LARGER_MEEPLE_CITY_BONUS_RATE?: number;
+    LARGER_MEEPLE_ROAD_BONUS_RATE?: number;
+    LARGER_MEEPLE_FIELD_BONUS_RATE?: number;
     EXTRA_POINT_ONE_SIDE_CITY_PLAYER: number;
     EXTRA_POINT_ONE_SIDE_CITY_NEUTRAL: number;
     FIELD_MULTIPLIER: number;

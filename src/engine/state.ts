@@ -3,6 +3,7 @@ import { generateDeck } from './tiles';
 import { isValidPlacement, hasAnyValidPlacement } from './board';
 import { checkAndScoreFeatures, scoreEndGame } from './scoring';
 import { AI_EXPERIMENT_MODE } from '../utils/debug.ts';
+import { AI_CONSTANTS_EXPERIMENT } from './aiConstants.ts';
 import {
     evaluateGainScoreComplete,
     evaluateGainScoreCity_InProgress,
@@ -270,14 +271,23 @@ export function endTurn(state: GameState) {
 
     // If experiment mode is on, capture the evaluation of what just happened
     if (AI_EXPERIMENT_MODE) {
-        const didPlaceMeeple = placedTile.meeples.some((m: PlacedMeeple) => m.meeple.playerId === playerId);
+        const placedMeeple = placedTile.meeples.find((m: PlacedMeeple) => m.meeple.playerId === playerId)?.meeple;
+        const didPlaceMeeple = !!placedMeeple;
+        const isLargePlaced = placedMeeple?.type === 'large';
+        const aiType = state.playerTypes[playerId];
+        const weights = aiType === 'ai-medium' ? AI_CONSTANTS_EXPERIMENT.MEDIUM : AI_CONSTANTS_EXPERIMENT.EASY;
+
         const meepleUsage: Record<PlayerId | 'neutral', number> = { neutral: 0 };
         state.players.forEach(p => {
-            let countBefore = meeplesBeforeScoring[p].standard;
+            let countBefore = meeplesBeforeScoring[p].standard + (meeplesBeforeScoring[p].large || 0);
+            const countAfter = state.remainingMeeples[p].standard + (state.remainingMeeples[p].large || 0);
+            let pIsLargePlaced = false;
+
             if (p === playerId && didPlaceMeeple) {
                 countBefore += 1;
+                pIsLargePlaced = isLargePlaced;
             }
-            meepleUsage[p] = evaluateMeepleUsage(countBefore, state.remainingMeeples[p].standard);
+            meepleUsage[p] = evaluateMeepleUsage(countBefore, countAfter, weights?.MEEPLE_PLACEMENT, pIsLargePlaced, weights?.LARGER_MEEPLE_COST || 0);
         });
 
         state.lastMoveEvaluation = {

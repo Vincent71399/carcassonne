@@ -1,4 +1,4 @@
-import type { GameState, PlayerId, PlacedTile, TileDefinition, PlayerType, AIWeights } from './types';
+import type { GameState, PlayerId, PlacedTile, TileDefinition, PlayerType, AIWeights, MeepleType } from './types';
 import { getValidPlacements } from './board';
 
 import { AI_CONSTANTS, AI_CONSTANTS_EXPERIMENT } from './aiConstants';
@@ -11,7 +11,7 @@ export interface AIMove {
     handIndex: number;
     tilePlacement: { x: number; y: number; rotation: number };
     // undefined means skip meeple placement
-    meeplePlacement?: { featureId: string; meepleType: 'standard' };
+    meeplePlacement?: { featureId: string; meepleType: MeepleType };
     score: number;
 }
 
@@ -59,6 +59,7 @@ function calculateWeightedScore(
     simTile: PlacedTile,
     aiPlayerId: PlayerId,
     meepleFeatureId: string | null,
+    meepleType: MeepleType | null,
     weights: AIWeights,
     context?: AITurnContext
 ): number {
@@ -80,11 +81,11 @@ function calculateWeightedScore(
     // Let's use it for the active player.
     const returnedMeeples = experimental.evaluateReturnedMeeples(simBoard, x, y, simTile, aiPlayerId);
 
-    const countBefore = state.remainingMeeples[aiPlayerId]?.standard || 0;
+    const countBefore = (state.remainingMeeples[aiPlayerId]?.standard || 0) + (state.remainingMeeples[aiPlayerId]?.large || 0);
     const countAfter = countBefore - (meepleFeatureId ? 1 : 0) + returnedMeeples;
 
     // experimental.evaluateMeepleUsage is quite sophisticated about "weights".
-    const meepleUsageScore = experimental.evaluateMeepleUsage(countBefore, countAfter, weights.MEEPLE_PLACEMENT);
+    const meepleUsageScore = experimental.evaluateMeepleUsage(countBefore, countAfter, weights.MEEPLE_PLACEMENT, meepleType === 'large', weights.LARGER_MEEPLE_COST || 0);
 
     const cityAttack = experimental.evaluateCityAttack(simBoard, aiPlayerId, players, { x, y }, state.hands[aiPlayerId], state.deck, context);
     const roadAttack = experimental.evaluateRoadAttack(simBoard, aiPlayerId, players, { x, y }, state.hands[aiPlayerId], state.deck, context);
@@ -102,12 +103,19 @@ function calculateWeightedScore(
 
     let totalScore = 0;
 
+    let cityBonus = 1, roadBonus = 1, fieldBonus = 1;
+    if (meepleType === 'large' && meepleFeatureId) {
+        if (meepleFeatureId.startsWith('city')) cityBonus = weights.LARGER_MEEPLE_CITY_BONUS_RATE || 1;
+        else if (meepleFeatureId.startsWith('road')) roadBonus = weights.LARGER_MEEPLE_ROAD_BONUS_RATE || 1;
+        else if (meepleFeatureId.startsWith('field')) fieldBonus = weights.LARGER_MEEPLE_FIELD_BONUS_RATE || 1;
+    }
+
     // 1. Self weights
-    totalScore += complete[aiPlayerId] * weights.SCORE_GAIN;
-    totalScore += cityInProgress[aiPlayerId] * weights.CITY_IN_PROGRESS;
-    totalScore += roadInProgress[aiPlayerId] * weights.ROAD_IN_PROGRESS;
+    totalScore += complete[aiPlayerId] * weights.SCORE_GAIN * (meepleFeatureId?.startsWith('city') ? cityBonus : meepleFeatureId?.startsWith('road') ? roadBonus : 1);
+    totalScore += cityInProgress[aiPlayerId] * weights.CITY_IN_PROGRESS * cityBonus;
+    totalScore += roadInProgress[aiPlayerId] * weights.ROAD_IN_PROGRESS * roadBonus;
     totalScore += monasteryInProgress[aiPlayerId] * weights.MONASTERY_IN_PROGRESS;
-    totalScore += field[aiPlayerId] * weights.FIELD * game_end_factor;
+    totalScore += field[aiPlayerId] * weights.FIELD * game_end_factor * fieldBonus;
     totalScore += meepleUsageScore * weights.MEEPLE_USAGE;
     totalScore += cityAttack[aiPlayerId] * weights.CITY_ATTACK;
     totalScore += roadAttack[aiPlayerId] * weights.ROAD_ATTACK;
@@ -193,7 +201,7 @@ export function getScoredMoves(
 
             // 1) Evaluate Placement WITHOUT a Meeple
             const scoreNoMeeple = weights
-                ? calculateWeightedScore(state, simBoard, placement.x, placement.y, simTile, activePlayerId, null, weights, context)
+                ? calculateWeightedScore(state, simBoard, placement.x, placement.y, simTile, activePlayerId, null, null, weights, context)
                 : calculateFinalScore(evaluateAllActions(state, simBoard, placement.x, placement.y, simTile, activePlayerId, null));
 
             scoredMoves.push({
@@ -202,7 +210,14 @@ export function getScoredMoves(
             });
 
             // 2) Evaluate Placement WITH a Meeple
-            if (getAvailableMeeples(state, activePlayerId) > 0) {
+            const standardMeeples = getAvailableMeeples(state, activePlayerId);
+            const largeMeeples = state.remainingMeeples[activePlayerId]?.large || 0;
+            const availableMeeples: MeepleType[] = [
+                ...(standardMeeples > 0 ? ['standard' as MeepleType] : []),
+                ...(largeMeeples > 0 ? ['large' as MeepleType] : [])
+            ];
+
+            if (availableMeeples.length > 0) {
                 const featuresToTry: string[] = [];
                 if (tileDef.cityConnections) tileDef.cityConnections.forEach((_, i) => featuresToTry.push(`city-${i}`));
                 if (tileDef.roadConnections) tileDef.roadConnections.forEach((_, i) => featuresToTry.push(`road-${i}`));
@@ -216,18 +231,20 @@ export function getScoredMoves(
                 for (const fId of featuresToTry) {
                     const occupied = new Set(getOccupiedFeaturesOnTile(simBoard, placement.x, placement.y));
                     if (!occupied.has(fId)) {
-                        simTile.meeples.push({ meeple: { id: 'sim-meeple', playerId: activePlayerId, type: 'standard' }, featureId: fId });
+                        for (const mType of availableMeeples) {
+                            simTile.meeples.push({ meeple: { id: 'sim-meeple', playerId: activePlayerId, type: mType }, featureId: fId });
 
-                        const scoreWithMeeple = weights
-                            ? calculateWeightedScore(state, simBoard, placement.x, placement.y, simTile, activePlayerId, fId, weights, context)
-                            : calculateFinalScore(evaluateAllActions(state, simBoard, placement.x, placement.y, simTile, activePlayerId, fId)) + AI_CONSTANTS.NOOB.MEEPLE_PLACEMENT_BONUS;
+                            const scoreWithMeeple = weights
+                                ? calculateWeightedScore(state, simBoard, placement.x, placement.y, simTile, activePlayerId, fId, mType, weights, context)
+                                : calculateFinalScore(evaluateAllActions(state, simBoard, placement.x, placement.y, simTile, activePlayerId, fId)) + AI_CONSTANTS.NOOB.MEEPLE_PLACEMENT_BONUS;
 
-                        simTile.meeples.pop();
+                            simTile.meeples.pop();
 
-                        scoredMoves.push({
-                            move: { handIndex, tilePlacement: { x: placement.x, y: placement.y, rotation }, meeplePlacement: { featureId: fId, meepleType: 'standard' }, score: scoreWithMeeple },
-                            score: scoreWithMeeple
-                        });
+                            scoredMoves.push({
+                                move: { handIndex, tilePlacement: { x: placement.x, y: placement.y, rotation }, meeplePlacement: { featureId: fId, meepleType: mType }, score: scoreWithMeeple },
+                                score: scoreWithMeeple
+                            });
+                        }
                     }
                 }
             }
