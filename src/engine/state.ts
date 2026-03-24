@@ -14,7 +14,7 @@ import {
     evaluateRoadAttack,
     evaluateFieldAttack,
     evaluateCityOpenEdgeDelta
-} from './aiEvaluators_experiment';
+} from './aiEvaluators.ts';
 
 export function createInitialState(
     playerNames: Record<PlayerId, string>,

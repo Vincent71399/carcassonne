@@ -1,4 +1,4 @@
-import { createInitialState, placeTile, placeMeeple, skipMeeple, finishScoring, advanceTurn } from '../src/engine/state';
+import { createInitialState, placeTile, discardTile, placeMeeple, skipMeeple, finishScoring, advanceTurn } from '../src/engine/state';
 import { calculateBestAIMove } from '../src/engine/ai';
 import type { PlayerType, GameState } from '../src/engine/types';
 
@@ -44,12 +44,10 @@ async function runMatch(types: Record<number, PlayerType>, names: Record<number,
                 skipMeeple(state, currentPlayer);
             }
             (state as LocalTestState).pendingMeepleMove = null;
+        } else if (state.turnPhase === 'DiscardTile') {
+            discardTile(state, currentPlayer, 0);
         } else if (state.turnPhase === 'WaitingNextTurn') {
             advanceTurn(state);
-        } else if (state.endGameMode) {
-            while (state.turnPhase === 'Score') {
-                finishScoring(state);
-            }
         }
     }
 

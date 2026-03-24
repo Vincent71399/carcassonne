@@ -1,177 +1,1309 @@
-import type { GameState, PlayerId, PlacedTile } from './types';
-import { evaluateFeature, evaluateMonastery, type FeatureEvaluation, type FeatureComponent } from './features';
+import type { GameState, PlayerId, PlacedTile, FeatureType, EdgeDirection, TileDefinition, AIWeights } from './types';
+import { evaluateFeature, evaluateMonastery, type FeatureEvaluation } from './features';
 import { TILES_MAP } from './tiles';
-import {AI_CONSTANTS} from './aiConstants';
 
-export interface ActionImpact {
-    selfGain: number;       // Points we definitively score (or secure)
-    opponentDelta: Record<PlayerId, number>; // Points each opponent specifically gains (+) or loses (-)
+import { isValidPlacement, rotateEdges } from './board';
+
+export interface AITurnContext {
+    targetCities: FeatureEvaluation[];
+    targetRoads: FeatureEvaluation[];
+    targetFields: FeatureEvaluation[];
+    attackerAlreadyControlledCities: Record<PlayerId, Set<string>>;
+    baseCityInProgress: Record<PlayerId | 'neutral', number>;
+    baseRoadInProgress: Record<PlayerId | 'neutral', number>;
+    baseMonasteryInProgress: Record<PlayerId | 'neutral', number>;
+    baseFieldScore: Record<PlayerId | 'neutral', number>;
 }
 
-const emptyImpact: ActionImpact = { selfGain: 0, opponentDelta: {} };
+export function createAITurnContext(
+    board: GameState['board'],
+    aiPlayerId: PlayerId,
+    allPlayerIds: PlayerId[]
+): AITurnContext {
+    const targetCities: FeatureEvaluation[] = [];
+    const targetRoads: FeatureEvaluation[] = [];
+    const targetFields: FeatureEvaluation[] = [];
+    const attackerAlreadyControlledCities: Record<PlayerId, Set<string>> = {};
+    allPlayerIds.forEach(pid => attackerAlreadyControlledCities[pid] = new Set<string>());
 
-function addImpacts(a: ActionImpact, b: ActionImpact): ActionImpact {
-    const combinedDelta: Record<PlayerId, number> = { ...a.opponentDelta };
-    for (const [pid, delta] of Object.entries(b.opponentDelta)) {
-        const playerId = parseInt(pid, 10) as PlayerId;
-        combinedDelta[playerId] = (combinedDelta[playerId] || 0) + delta;
+    const scoredCities = new Set<string>();
+    const scoredRoads = new Set<string>();
+    const scoredFields = new Set<string>();
+
+    for (const tileKey of Object.keys(board)) {
+        const tile = board[tileKey];
+        const def = TILES_MAP[tile.typeId];
+
+        if (def?.cityConnections) {
+            def.cityConnections.forEach((_, idx) => {
+                const ev = evaluateFeature(board, tile.x, tile.y, 'city', idx);
+                if (ev.isComplete) return;
+                const key = ev.components.map(c => `${c.tileX},${c.tileY},${c.featureId}`).sort().join('|');
+                if (scoredCities.has(key)) return;
+                scoredCities.add(key);
+
+                const ownership = getFeatureOwnership(ev, board);
+                if (getFeatureWinners(ownership).some(w => w !== 'neutral' && w !== aiPlayerId)) {
+                    targetCities.push(ev);
+                }
+            });
+        }
+
+        if (def?.roadConnections) {
+            def.roadConnections.forEach((_, idx) => {
+                const ev = evaluateFeature(board, tile.x, tile.y, 'road', idx);
+                if (ev.isComplete) return;
+                const key = ev.components.map(c => `${c.tileX},${c.tileY},${c.featureId}`).sort().join('|');
+                if (scoredRoads.has(key)) return;
+                scoredRoads.add(key);
+
+                const ownership = getFeatureOwnership(ev, board);
+                if (getFeatureWinners(ownership).some(w => w !== 'neutral' && w !== aiPlayerId)) {
+                    targetRoads.push(ev);
+                }
+            });
+        }
+
+        if (def?.fieldConnections) {
+            def.fieldConnections.forEach((_, idx) => {
+                const ev = evaluateFeature(board, tile.x, tile.y, 'field', idx);
+                const key = ev.components.map(c => `${c.tileX},${c.tileY},${c.featureId}`).sort().join('|');
+                if (scoredFields.has(key)) return;
+                scoredFields.add(key);
+
+                const ownership = getFeatureOwnership(ev, board);
+                
+                allPlayerIds.forEach(pid => {
+                    if (ownership[pid] > 0) {
+                        getFieldCities(ev, board).forEach(c => attackerAlreadyControlledCities[pid].add(c));
+                    }
+                });
+
+                if (getFeatureWinners(ownership).some(w => w !== 'neutral' && w !== aiPlayerId)) {
+                    targetFields.push(ev);
+                }
+            });
+        }
     }
-    return {
-        selfGain: a.selfGain + b.selfGain,
-        opponentDelta: combinedDelta
+
+    const baseCityInProgress = calculateTotalInProgress(board, allPlayerIds, 'city');
+    const baseRoadInProgress = calculateTotalInProgress(board, allPlayerIds, 'road');
+    const baseMonasteryInProgress = calculateTotalInProgress(board, allPlayerIds, 'monastery');
+    const baseFieldScore = calculateFieldScore(board, allPlayerIds);
+
+    return { 
+        targetCities, targetRoads, targetFields, attackerAlreadyControlledCities,
+        baseCityInProgress, baseRoadInProgress, baseMonasteryInProgress, baseFieldScore
     };
 }
 
-function getFeatureDelta(_board: GameState['board'], fId: string, simTile: PlacedTile): number {
-    if (fId.startsWith('city')) {
-        let pts = 2;
-        if (TILES_MAP[simTile.typeId]?.pennants) pts += 2;
-        return pts;
-    }
-    if (fId.startsWith('road')) return 1;
-    if (fId.startsWith('monastery')) return 1;
-    return 0; // Fields are evaluated based on completion
+export function evaluateFieldAttack(
+    board: GameState['board'],
+    attackerId: PlayerId,
+    allPlayerIds: PlayerId[],
+    currentPos: { x: number, y: number },
+    hand: GameState['hands'][PlayerId],
+    deck: GameState['deck'],
+    context?: AITurnContext
+): Record<PlayerId | 'neutral', number> {
+    const results: Record<PlayerId | 'neutral', number> = { neutral: 0 } as Record<PlayerId | 'neutral', number>;
+    allPlayerIds.forEach(pid => { results[pid] = 0; });
+
+    const attackerTile = board[`${currentPos.x},${currentPos.y}`];
+    if (!attackerTile) return results;
+
+    const effectiveContext = context || createAITurnContext(board, attackerId, allPlayerIds);
+    const targetFields: FeatureEvaluation[] = effectiveContext.targetFields;
+    const attackerAlreadyControlledCities: Set<string> = effectiveContext.attackerAlreadyControlledCities[attackerId] || new Set<string>();
+
+    if (targetFields.length === 0) return results;
+
+    // 3. Identify Attacker's Fields on the new tile
+    const attackerFeatures: FeatureEvaluation[] = [];
+    const attackerDefAtMove = TILES_MAP[attackerTile.typeId];
+    attackerDefAtMove?.fieldConnections?.forEach((_, fieldIdx) => {
+        const ev = evaluateFeature(board, currentPos.x, currentPos.y, 'field', fieldIdx);
+        const ownership = getFeatureOwnership(ev, board);
+        if (ownership[attackerId] > 0) {
+            attackerFeatures.push(ev);
+        }
+    });
+
+    if (attackerFeatures.length === 0) return results;
+
+    const attackerOpenEdgesByJunction = new Map<string, { x: number, y: number, segment: string }[]>();
+    attackerFeatures.forEach(af => {
+        getOpenFieldEdges(af, board).forEach(oe => {
+            // ONLY consider open edges of the newly placed tile itself
+            if (oe.x !== currentPos.x || oe.y !== currentPos.y) return;
+
+            const dx_dir = oe.segment.split('-')[0] as EdgeDirection;
+            const jx = oe.x + (dx_dir === 'right' ? 1 : dx_dir === 'left' ? -1 : 0);
+            const jy = oe.y + (dx_dir === 'bottom' ? 1 : dx_dir === 'top' ? -1 : 0);
+            const key = `${jx},${jy}`;
+            if (!attackerOpenEdgesByJunction.has(key)) attackerOpenEdgesByJunction.set(key, []);
+            attackerOpenEdgesByJunction.get(key)!.push(oe);
+        });
+    });
+
+    // 4. Evaluate attacks on target fields
+    targetFields.forEach(target => {
+        const targetOpenEdges = getOpenFieldEdges(target, board);
+        const targetOwnerShip = getFeatureOwnership(target, board);
+        const targetWinners = getFeatureWinners(targetOwnerShip);
+        const targetOwnerWinner = targetWinners.find(w => w !== 'neutral' && w !== attackerId);
+        if (!targetOwnerWinner) return;
+        const targetOwnerId = Number(targetOwnerWinner);
+
+        const seenJunctionsForThisTarget = new Set<string>();
+
+        targetOpenEdges.forEach(targetEdge => {
+            const dx_dir = targetEdge.segment.split('-')[0] as EdgeDirection;
+            const jx = targetEdge.x + (dx_dir === 'right' ? 1 : dx_dir === 'left' ? -1 : 0);
+            const jy = targetEdge.y + (dx_dir === 'bottom' ? 1 : dx_dir === 'top' ? -1 : 0);
+            const junctionKey = `${jx},${jy}`;
+
+            if (board[junctionKey] || seenJunctionsForThisTarget.has(junctionKey)) return;
+            seenJunctionsForThisTarget.add(junctionKey);
+
+            const matchingAttackerEdges = attackerOpenEdgesByJunction.get(junctionKey);
+            if (matchingAttackerEdges) {
+                matchingAttackerEdges.forEach(attackerEdge => {
+                    const connectingTiles = findConnectingFieldTiles(board, jx, jy, targetEdge.segment, attackerEdge.segment, hand, deck);
+                    if (connectingTiles.count > 0) {
+                        const attackerMeeplesPerPid: Record<PlayerId, number> = {};
+                        allPlayerIds.forEach(pid => { attackerMeeplesPerPid[pid] = 0; });
+
+                        const processedFeatures = new Set<string>();
+
+                        const dirsToCheck: EdgeDirection[] = ['top', 'right', 'bottom', 'left'];
+                        dirsToCheck.forEach(dir => {
+                            const nx = jx + (dir === 'right' ? 1 : dir === 'left' ? -1 : 0);
+                            const ny = jy + (dir === 'bottom' ? 1 : dir === 'top' ? -1 : 0);
+                            const nTile = board[`${nx},${ny}`];
+                            if (!nTile) return;
+
+                            const nDef = TILES_MAP[nTile.typeId];
+                            const oppositeDir = dir === 'top' ? 'bottom' : dir === 'bottom' ? 'top' : dir === 'left' ? 'right' : 'left';
+                            const origDir = getOriginalDir(oppositeDir, nTile.rotation);
+
+                            nDef.fieldConnections?.forEach((conn, fIdx) => {
+                                if (conn.some(seg => seg.startsWith(origDir))) {
+                                    const ev = evaluateFeature(board, nx, ny, 'field', fIdx);
+                                    const featureKey = ev.components.map(c => `${c.tileX},${c.tileY},${c.featureId}`).sort().join('|');
+                                    if (processedFeatures.has(featureKey)) return;
+                                    processedFeatures.add(featureKey);
+
+                                    const ownership = getFeatureOwnership(ev, board);
+                                    allPlayerIds.forEach(pid => {
+                                        attackerMeeplesPerPid[pid] += (ownership[pid] || 0);
+                                    });
+                                }
+                            });
+                        });
+
+                        const A_total = attackerMeeplesPerPid[attackerId] || 0;
+                        const O_count = Math.max(...allPlayerIds.filter(pid => pid !== attackerId).map(pid => attackerMeeplesPerPid[pid] || 0), 0);
+
+                        if (A_total >= O_count) {
+                            const pFactor = connectingTiles.inHand ? 1 :
+                                calculatePossibilityFactor(connectingTiles.count, deck.length, allPlayerIds.length);
+
+                            const targetCities = getFieldCities(target, board);
+
+                            // Control State Change Check:
+                            // We only count this as an attack if joining these fields changes 
+                            // who gets points for which cities.
+
+                            const citiesGainedByAttacker = new Set<string>();
+
+                            targetCities.forEach(cKey => {
+                                // A city is gained only if the attacker didn't already have it 
+                                // via ANY of their current fields.
+                                if (!attackerAlreadyControlledCities.has(cKey)) {
+                                    citiesGainedByAttacker.add(cKey);
+                                }
+                                
+                                // A city is lost by the opponent if the attacker becomes the sole winner or a sharer
+                                // in a way that reduces the opponent's relative ownership (though in Carcassonne 
+                                // you only lose points if you are no longer a winner).
+                            });
+
+                            const A_is_already_winner = targetWinners.includes(attackerId);
+                            
+                            if (citiesGainedByAttacker.size === 0 && !A_is_already_winner) {
+                                // If no new cities are gained, and we weren't a winner before,
+                                // we might still be gaining a share of points? 
+                                // Actually, if we weren't a winner, and we gain NO cities,
+                                // it means the target field touches NO cities we don't already touch.
+                                // BUT! We might be gaining the points for those cities if we were previously
+                                // NOT getting them from our own field?
+                                // No, attackerAlreadyControlledCities includes all cities P1 gets points for.
+                                // So if citiesGainedByAttacker is empty, we gain 0 points.
+                                return; 
+                            }
+
+                            // Only count as attack if the set of winners for the target field's cities changes.
+                            // Joining an existing field always adds the attacker to the set of winners.
+                            // If the attacker was ALREADY a winner (shared), joining doesn't change points for them.
+                            
+                            const fieldMultiplier = 3; // Default or from context?
+                            
+                            const A_gain = A_is_already_winner ? 0 : citiesGainedByAttacker.size * fieldMultiplier * pFactor;
+                            const O_loss = (A_total > O_count) ? targetCities.size * fieldMultiplier * pFactor : 0;
+
+                            if (A_gain > 0) results[attackerId] = Math.max(results[attackerId], A_gain);
+                            if (O_loss > 0) results[targetOwnerId] = Math.min(results[targetOwnerId], -O_loss) || 0;
+                        }
+                    }
+                });
+            }
+        });
+    });
+
+    return results;
 }
 
-function getFeatureOwnership(evaluation: FeatureEvaluation, board: GameState['board'], fId: string, x?: number, y?: number): Record<PlayerId, number> {
-    const meepleCounts: Record<PlayerId, number> = {};
-    if (fId.startsWith('monastery') && x !== undefined && y !== undefined) {
-        const centerTile = board[`${x},${y}`];
-        if (centerTile) {
-            centerTile.meeples.filter(m => m.featureId === 'monastery-0').forEach(m => {
-                const pid = m.meeple.playerId;
-                meepleCounts[pid] = (meepleCounts[pid] || 0) + 1;
-            });
+function getFieldCities(ev: FeatureEvaluation, board: GameState['board']): Set<string> {
+    const adjacentCityKeys = new Set<string>();
+    ev.components.forEach(comp => {
+        const compTile = board[`${comp.tileX},${comp.tileY}`];
+        if (!compTile) return;
+        const compDef = TILES_MAP[compTile.typeId];
+        if (!compDef?.adjacentCities) return;
+        const localIdx = parseInt(comp.featureId.split('-')[1], 10);
+        const adj = compDef.adjacentCities[localIdx];
+        if (!adj) return;
+        adj.forEach(cIdx => {
+            const ce = evaluateFeature(board, compTile.x, compTile.y, 'city', cIdx);
+            if (ce.isComplete) {
+                adjacentCityKeys.add(ce.components.map(c => `${c.tileX},${c.tileY},${c.featureId}`).sort().join('|'));
+            }
+        });
+    });
+    return adjacentCityKeys;
+}
+
+/**
+ * Calculates the score impact of meeple usage/gain.
+ */
+export function evaluateMeepleUsage(
+    countBefore: number,
+    countAfter: number,
+    meepleWeights?: number[]
+): number {
+    const weights = meepleWeights || [3, 1.5, 1, 0.5, 0.5, 0.5, 0.5];
+    let score = 0;
+
+    if (countAfter < countBefore) {
+        // Meeples were used
+        for (let i = countBefore; i > countAfter; i--) {
+            // i is the rank (1-7). Index is i-1.
+            const weight = weights[i - 1] || 0.5;
+            score -= weight;
         }
-        return meepleCounts;
+    } else if (countAfter > countBefore) {
+        // Meeples were returned
+        for (let i = countBefore + 1; i <= countAfter; i++) {
+            const weight = weights[i - 1] || 0.5;
+            score += weight;
+        }
     }
 
-    evaluation.components.forEach((comp: FeatureComponent) => {
+    return score;
+}
+
+/**
+ * Calculates the score gained from completing a city, road, or monastery.
+ */
+export function evaluateGainScoreComplete(
+    board: GameState['board'],
+    x: number,
+    y: number,
+    simTile: PlacedTile,
+    players: PlayerId[]
+): Record<PlayerId | 'neutral', number> {
+    const results: Record<PlayerId | 'neutral', number> = { neutral: 0 };
+    players.forEach(p => { results[p] = 0; });
+
+    const tileDef = TILES_MAP[simTile.typeId];
+    if (!tileDef) return results;
+
+    const completedFeatures = new Set<string>();
+
+    const processFeature = (evalResult: FeatureEvaluation, category: 'city' | 'road' | 'monastery') => {
+        if (!evalResult.isComplete) return;
+
+        const componentIds = evalResult.components.map(c => `${c.tileX},${c.tileY},${c.featureId}`).sort();
+        const featureKey = componentIds.join('|');
+        if (completedFeatures.has(featureKey)) return;
+        completedFeatures.add(featureKey);
+
+        const ownership = getFeatureOwnership(evalResult, board);
+        const winners = getFeatureWinners(ownership);
+
+        const uniqueTileKeys = new Set(evalResult.components.map(c => `${c.tileX},${c.tileY}`));
+        let points = uniqueTileKeys.size * (category === 'city' ? 2 : 1);
+
+        if (category === 'city') {
+            uniqueTileKeys.forEach(tk => {
+                const t = board[tk];
+                const tDef = t ? TILES_MAP[t.typeId] : null;
+                if (tDef?.pennants) {
+                    points += (tDef.pennants * 2);
+                }
+            });
+        }
+
+        winners.forEach(w => {
+            if (w === 'neutral') {
+                // Neutral completion gain is always 0 (impact is in In-Progress delta)
+                return;
+            } else {
+                results[w] = (results[w] || 0) + points;
+            }
+        });
+    };
+
+
+    if (tileDef.cityConnections) {
+        tileDef.cityConnections.forEach((_, i) => processFeature(evaluateFeature(board, x, y, 'city', i), 'city'));
+    }
+    if (tileDef.roadConnections) {
+        tileDef.roadConnections.forEach((_, i) => processFeature(evaluateFeature(board, x, y, 'road', i), 'road'));
+    }
+    if (tileDef.monastery) {
+        processFeature(evaluateMonastery(board, x, y), 'monastery');
+    }
+
+    // Check adjacent monasteries
+    for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+            if (dx === 0 && dy === 0) continue;
+            const nx = x + dx;
+            const ny = y + dy;
+            const nTile = board[`${nx},${ny}`];
+            if (nTile) {
+                const nDef = TILES_MAP[nTile.typeId];
+                if (nDef?.monastery) {
+                    processFeature(evaluateMonastery(board, nx, ny), 'monastery');
+                }
+            }
+        }
+    }
+
+    return results;
+}
+
+/**
+ * Calculates the score gained from cities that are still in progress.
+ */
+export function evaluateGainScoreCity_InProgress(
+    originalBoard: GameState['board'],
+    simBoard: GameState['board'],
+    x: number,
+    y: number,
+    players: PlayerId[],
+    context?: AITurnContext,
+    weights?: Partial<AIWeights>
+): Record<PlayerId | 'neutral', number> {
+    return calculateInProgressDelta(originalBoard, simBoard, x, y, 'city', players, context, weights);
+}
+
+/**
+ * Calculates the score gained from roads that are still in progress.
+ */
+export function evaluateGainScoreRoad_InProgress(
+    originalBoard: GameState['board'],
+    simBoard: GameState['board'],
+    x: number,
+    y: number,
+    players: PlayerId[],
+    context?: AITurnContext,
+    weights?: Partial<AIWeights>
+): Record<PlayerId | 'neutral', number> {
+    return calculateInProgressDelta(originalBoard, simBoard, x, y, 'road', players, context, weights);
+}
+
+/**
+ * Calculates the score gained from monasteries that are still in progress.
+ */
+export function evaluateGainScoreMonastery_InProgress(
+    originalBoard: GameState['board'],
+    simBoard: GameState['board'],
+    _x: number,
+    _y: number,
+    players: PlayerId[],
+    context?: AITurnContext
+): Record<PlayerId | 'neutral', number> {
+    const scoreBefore = context ? context.baseMonasteryInProgress : calculateTotalInProgress(originalBoard, players, 'monastery');
+    const scoreAfter = calculateTotalInProgress(simBoard, players, 'monastery');
+
+    const results: Record<PlayerId | 'neutral', number> = { neutral: scoreAfter.neutral - scoreBefore.neutral };
+    players.forEach(p => {
+        results[p] = (scoreAfter[p] || 0) - (scoreBefore[p] || 0);
+    });
+    return results;
+}
+
+/**
+ * Advanced logic for city attack/defense evaluation.
+ */
+export function evaluateCityAttack(
+    board: GameState['board'],
+    attackerId: PlayerId,
+    players: PlayerId[],
+    lastMovePos: { x: number, y: number },
+    attackerHand: GameState['hands'][PlayerId],
+    deck: GameState['deck'],
+    context?: AITurnContext
+): Record<PlayerId | 'neutral', number> {
+    const results: Record<PlayerId | 'neutral', number> = { neutral: 0 };
+    players.forEach(p => { results[p] = 0; });
+
+    const { x: ax, y: ay } = lastMovePos;
+    const attackerTile = board[`${ax},${ay}`];
+    if (!attackerTile) return results;
+
+    const effectiveContext = context || createAITurnContext(board, attackerId, players);
+    const targetCities: FeatureEvaluation[] = effectiveContext.targetCities;
+
+    if (targetCities.length === 0) return results;
+
+    // 2. Identify Attacker's Cities on the new tile
+    const attackerCities: FeatureEvaluation[] = [];
+    const attackerDefForMeeple = TILES_MAP[attackerTile.typeId];
+    attackerDefForMeeple?.cityConnections?.forEach((_: EdgeDirection[], i: number) => {
+        const ev = evaluateFeature(board, ax, ay, 'city', i);
+        const ownership = getFeatureOwnership(ev, board);
+        if (ownership[attackerId] > 0) {
+            attackerCities.push(ev);
+        }
+    });
+
+    if (attackerCities.length === 0) return results;
+
+    const attackerOpenEdgesByJunction = new Map<string, { x: number, y: number, dir: EdgeDirection }[]>();
+    attackerCities.forEach(ac => {
+        getOpenCityEdges(ac, board).forEach(oe => {
+            if (oe.x !== ax || oe.y !== ay) return;
+
+            const jx = oe.x + (oe.dir === 'right' ? 1 : oe.dir === 'left' ? -1 : 0);
+            const jy = oe.y + (oe.dir === 'bottom' ? 1 : oe.dir === 'top' ? -1 : 0);
+            const key = `${jx},${jy}`;
+            if (!attackerOpenEdgesByJunction.has(key)) attackerOpenEdgesByJunction.set(key, []);
+            attackerOpenEdgesByJunction.get(key)!.push(oe);
+        });
+    });
+
+    // 3. Evaluate attacks on target cities
+    targetCities.forEach(target => {
+        const targetOpenEdges = getOpenCityEdges(target, board);
+        const targetValue = new Set(target.components.map(c => `${c.tileX},${c.tileY}`)).size * 2;
+
+        const targetOwnerShip = getFeatureOwnership(target, board);
+        const targetWinners = getFeatureWinners(targetOwnerShip);
+        const targetOwnerWinner = targetWinners.find(w => w !== 'neutral' && w !== attackerId);
+        if (!targetOwnerWinner) return;
+        const targetOwnerId = Number(targetOwnerWinner);
+
+        const seenJunctionsForThisTarget = new Set<string>();
+
+        targetOpenEdges.forEach(targetEdge => {
+            const jx = targetEdge.x + (targetEdge.dir === 'right' ? 1 : targetEdge.dir === 'left' ? -1 : 0);
+            const jy = targetEdge.y + (targetEdge.dir === 'bottom' ? 1 : targetEdge.dir === 'top' ? -1 : 0);
+            const junctionKey = `${jx},${jy}`;
+
+            if (board[junctionKey] || seenJunctionsForThisTarget.has(junctionKey)) return;
+            seenJunctionsForThisTarget.add(junctionKey);
+
+            const matchingAttackerEdges = attackerOpenEdgesByJunction.get(junctionKey);
+            if (matchingAttackerEdges) {
+                matchingAttackerEdges.forEach(attackerEdge => {
+                    const connectingTiles = findConnectingTiles(board, jx, jy, targetEdge.dir, attackerEdge.dir, attackerHand, deck);
+                    if (connectingTiles.count > 0) {
+                        const attackerCity = attackerCities.find(ac =>
+                            getOpenCityEdges(ac, board).some(oe => oe.x === attackerEdge.x && oe.y === attackerEdge.y && oe.dir === attackerEdge.dir)
+                        );
+                        if (!attackerCity) return;
+                        const attackerCityValue = new Set(attackerCity.components.map(c => `${c.tileX},${c.tileY}`)).size * 2;
+
+                        let attackerMeeples = 0;
+                        let opponentMeeples = 0;
+                        const processedFeatures = new Set<string>();
+
+                        const dirsToCheck: EdgeDirection[] = ['top', 'right', 'bottom', 'left'];
+                        dirsToCheck.forEach(dir => {
+                            const nx = jx + (dir === 'right' ? 1 : dir === 'left' ? -1 : 0);
+                            const ny = jy + (dir === 'bottom' ? 1 : dir === 'top' ? -1 : 0);
+                            const nTile = board[`${nx},${ny}`];
+                            if (!nTile) return;
+
+                            const nDef = TILES_MAP[nTile.typeId];
+                            const oppositeDir = dir === 'top' ? 'bottom' : dir === 'bottom' ? 'top' : dir === 'left' ? 'right' : 'left';
+
+                            nDef.cityConnections?.forEach((conn, cityIdx) => {
+                                if (conn.includes(getOriginalDir(oppositeDir, nTile.rotation))) {
+                                    const ev = evaluateFeature(board, nx, ny, 'city', cityIdx);
+                                    const featureKey = ev.components.map(c => `${c.tileX},${c.tileY},${c.featureId}`).sort().join('|');
+                                    if (processedFeatures.has(featureKey)) return;
+                                    processedFeatures.add(featureKey);
+
+                                    const ownership = getFeatureOwnership(ev, board);
+                                    attackerMeeples += (ownership[attackerId] || 0);
+                                    opponentMeeples = Math.max(opponentMeeples, ownership[targetOwnerId] || 0);
+                                }
+                            });
+                        });
+
+                        const A_total = attackerMeeples;
+                        const O_count = opponentMeeples;
+                        const pFactor = connectingTiles.inHand ? 1 :
+                            calculatePossibilityFactor(connectingTiles.count, deck.length, players.length);
+
+                        // Attacker Gain (if they can reach/exceed opponent)
+                        if (A_total >= O_count) {
+                            results[attackerId] = Math.max(results[attackerId], targetValue * pFactor);
+                        }
+
+                        // Opponent Gain (if they can reach/exceed attacker)
+                        if (O_count >= A_total) {
+                            results[targetOwnerId] = Math.max(results[targetOwnerId], attackerCityValue * pFactor);
+                        }
+
+                        // Owner Loss (if attacker wins)
+                        if (A_total > O_count) {
+                            const newLoss = -targetValue * pFactor;
+                            results[targetOwnerId] = Math.min(results[targetOwnerId] || 0, newLoss);
+                        }
+                    }
+                });
+            }
+        });
+    });
+
+    return results;
+}
+
+export function evaluateRoadAttack(
+    board: GameState['board'],
+    attackerId: PlayerId,
+    players: PlayerId[],
+    lastMovePos: { x: number, y: number },
+    attackerHand: GameState['hands'][PlayerId],
+    deck: GameState['deck'],
+    context?: AITurnContext
+): Record<PlayerId | 'neutral', number> {
+    const results: Record<PlayerId | 'neutral', number> = { neutral: 0 };
+    players.forEach(p => { results[p] = 0; });
+
+    const { x: ax, y: ay } = lastMovePos;
+    const attackerTile = board[`${ax},${ay}`];
+    if (!attackerTile) return results;
+
+    const effectiveContext = context || createAITurnContext(board, attackerId, players);
+    const targetRoads: FeatureEvaluation[] = effectiveContext.targetRoads;
+
+    if (targetRoads.length === 0) return results;
+
+    // 2. Identify Attacker's Roads on the new tile
+    const attackerRoads: FeatureEvaluation[] = [];
+    const attackerDefAtMove = TILES_MAP[attackerTile.typeId];
+    attackerDefAtMove?.roadConnections?.forEach((_: EdgeDirection[], i: number) => {
+        const ev = evaluateFeature(board, ax, ay, 'road', i);
+        const ownership = getFeatureOwnership(ev, board);
+        if (ownership[attackerId] > 0) {
+            attackerRoads.push(ev);
+        }
+    });
+
+    if (attackerRoads.length === 0) return results;
+
+    const attackerOpenEdgesByJunction = new Map<string, { x: number, y: number, dir: EdgeDirection }[]>();
+    attackerRoads.forEach(ar => {
+        getOpenRoadEdges(ar, board).forEach(oe => {
+            if (oe.x !== ax || oe.y !== ay) return;
+
+            const jx = oe.x + (oe.dir === 'right' ? 1 : oe.dir === 'left' ? -1 : 0);
+            const jy = oe.y + (oe.dir === 'bottom' ? 1 : oe.dir === 'top' ? -1 : 0);
+            const key = `${jx},${jy}`;
+            if (!attackerOpenEdgesByJunction.has(key)) attackerOpenEdgesByJunction.set(key, []);
+            attackerOpenEdgesByJunction.get(key)!.push(oe);
+        });
+    });
+
+    // 3. Evaluate attacks on target roads
+    targetRoads.forEach(target => {
+        const targetOpenEdges = getOpenRoadEdges(target, board);
+        const targetValue = new Set(target.components.map(c => `${c.tileX},${c.tileY}`)).size; // tiles
+
+        const targetOwnerShip = getFeatureOwnership(target, board);
+        const targetWinners = getFeatureWinners(targetOwnerShip);
+        const targetOwnerWinner = targetWinners.find(w => w !== 'neutral' && w !== attackerId);
+        if (!targetOwnerWinner) return;
+        const targetOwnerId = Number(targetOwnerWinner);
+
+        const seenJunctionsForThisTarget = new Set<string>();
+
+        targetOpenEdges.forEach(targetEdge => {
+            const jx = targetEdge.x + (targetEdge.dir === 'right' ? 1 : targetEdge.dir === 'left' ? -1 : 0);
+            const jy = targetEdge.y + (targetEdge.dir === 'bottom' ? 1 : targetEdge.dir === 'top' ? -1 : 0);
+            const junctionKey = `${jx},${jy}`;
+
+            if (board[junctionKey] || seenJunctionsForThisTarget.has(junctionKey)) return;
+            seenJunctionsForThisTarget.add(junctionKey);
+
+            const matchingAttackerEdges = attackerOpenEdgesByJunction.get(junctionKey);
+            if (matchingAttackerEdges) {
+                matchingAttackerEdges.forEach(attackerEdge => {
+                    const connectingTiles = findConnectingRoadTiles(board, jx, jy, targetEdge.dir, attackerEdge.dir, attackerHand, deck);
+                    if (connectingTiles.count > 0) {
+                        const attackerRoad = attackerRoads.find(ar =>
+                            getOpenRoadEdges(ar, board).some(oe => oe.x === attackerEdge.x && oe.y === attackerEdge.y && oe.dir === attackerEdge.dir)
+                        );
+                        if (!attackerRoad) return;
+                        const attackerRoadValue = new Set(attackerRoad.components.map(c => `${c.tileX},${c.tileY}`)).size;
+
+                        let attackerMeeples = 0;
+                        let opponentMeeples = 0;
+                        const processedFeatures = new Set<string>();
+
+                        const dirsToCheck: EdgeDirection[] = ['top', 'right', 'bottom', 'left'];
+                        dirsToCheck.forEach(dir => {
+                            const nx = jx + (dir === 'right' ? 1 : dir === 'left' ? -1 : 0);
+                            const ny = jy + (dir === 'bottom' ? 1 : dir === 'top' ? -1 : 0);
+                            const nTile = board[`${nx},${ny}`];
+                            if (!nTile) return;
+
+                            const nDef = TILES_MAP[nTile.typeId];
+                            const oppositeDir = dir === 'top' ? 'bottom' : dir === 'bottom' ? 'top' : dir === 'left' ? 'right' : 'left';
+
+                            nDef.roadConnections?.forEach((conn, roadIdx) => {
+                                if (conn.includes(getOriginalDir(oppositeDir, nTile.rotation))) {
+                                    const ev = evaluateFeature(board, nx, ny, 'road', roadIdx);
+                                    const featureKey = ev.components.map(c => `${c.tileX},${c.tileY},${c.featureId}`).sort().join('|');
+                                    if (processedFeatures.has(featureKey)) return;
+                                    processedFeatures.add(featureKey);
+
+                                    const ownership = getFeatureOwnership(ev, board);
+                                    attackerMeeples += (ownership[attackerId] || 0);
+                                    opponentMeeples = Math.max(opponentMeeples, ownership[targetOwnerId] || 0);
+                                }
+                            });
+                        });
+
+                        const A_total = attackerMeeples;
+                        const O_count = opponentMeeples;
+                        const pFactor = connectingTiles.inHand ? 1 :
+                            calculatePossibilityFactor(connectingTiles.count, deck.length, players.length);
+
+                        // Attacker Gain
+                        if (A_total >= O_count) {
+                            results[attackerId] = Math.max(results[attackerId], targetValue * pFactor);
+                        }
+
+                        // Opponent Gain
+                        if (O_count >= A_total) {
+                            results[targetOwnerId] = Math.max(results[targetOwnerId], attackerRoadValue * pFactor);
+                        }
+
+                        // Owner Loss
+                        if (A_total > O_count) {
+                            const newLoss = -targetValue * pFactor;
+                            results[targetOwnerId] = Math.min(results[targetOwnerId] || 0, newLoss);
+                        }
+                    }
+                });
+            }
+        });
+    });
+
+    return results;
+}
+
+function getOpenCityEdges(ev: FeatureEvaluation, board: GameState['board']): { x: number, y: number, dir: EdgeDirection }[] {
+    const open: { x: number, y: number, dir: EdgeDirection }[] = [];
+    ev.components.forEach(comp => {
+        const t = board[`${comp.tileX},${comp.tileY}`];
+        if (!t) return;
+        const def = TILES_MAP[t.typeId];
+        const rotatedEdges = rotateEdges(def.edges, t.rotation);
+
+        (['top', 'right', 'bottom', 'left'] as EdgeDirection[]).forEach(dir => {
+            if (rotatedEdges[dir][0] === 'city') {
+                const nx = comp.tileX + (dir === 'right' ? 1 : dir === 'left' ? -1 : 0);
+                const ny = comp.tileY + (dir === 'bottom' ? 1 : dir === 'top' ? -1 : 0);
+                if (!board[`${nx},${ny}`]) {
+                    // Open edge detected, check if it's THIS city feature
+                    const neighbors = getCityNeighbors(t, dir);
+                    if (neighbors.includes(comp.featureId)) {
+                        open.push({ x: comp.tileX, y: comp.tileY, dir });
+                    }
+                }
+            }
+        });
+    });
+    return open;
+}
+
+function getCityNeighbors(tile: PlacedTile, dir: EdgeDirection): string[] {
+    const def = TILES_MAP[tile.typeId];
+    if (!def.cityConnections) return [];
+    return def.cityConnections.map((conn, idx) => conn.includes(getOriginalDir(dir, tile.rotation)) ? `city-${idx}` : '').filter(Boolean);
+}
+
+function getRoadNeighbors(tile: PlacedTile, dir: EdgeDirection): string[] {
+    const def = TILES_MAP[tile.typeId];
+    if (!def.roadConnections) return [];
+    return def.roadConnections.map((conn, idx) => conn.includes(getOriginalDir(dir, tile.rotation)) ? `road-${idx}` : '').filter(Boolean);
+}
+
+function getOpenRoadEdges(ev: FeatureEvaluation, board: GameState['board']): { x: number, y: number, dir: EdgeDirection }[] {
+    const open: { x: number, y: number, dir: EdgeDirection }[] = [];
+    ev.components.forEach(comp => {
+        const t = board[`${comp.tileX},${comp.tileY}`];
+        if (!t) return;
+        const def = TILES_MAP[t.typeId];
+        const rotatedEdges = rotateEdges(def.edges, t.rotation);
+
+        (['top', 'right', 'bottom', 'left'] as EdgeDirection[]).forEach(dir => {
+            if (rotatedEdges[dir][1] === 'road') {
+                const nx = comp.tileX + (dir === 'right' ? 1 : dir === 'left' ? -1 : 0);
+                const ny = comp.tileY + (dir === 'bottom' ? 1 : dir === 'top' ? -1 : 0);
+                if (!board[`${nx},${ny}`]) {
+                    const neighbors = getRoadNeighbors(t, dir);
+                    if (neighbors.includes(comp.featureId)) {
+                        open.push({ x: comp.tileX, y: comp.tileY, dir });
+                    }
+                }
+            }
+        });
+    });
+    return open;
+}
+
+function findConnectingRoadTiles(board: GameState['board'], jx: number, jy: number, targetDir: EdgeDirection, attackerDir: EdgeDirection, hand: GameState['hands'][PlayerId], deck: GameState['deck']) {
+    const neededDirs: EdgeDirection[] = [
+        targetDir === 'right' ? 'left' : targetDir === 'left' ? 'right' : targetDir === 'top' ? 'bottom' : 'top',
+        attackerDir === 'right' ? 'left' : attackerDir === 'left' ? 'right' : attackerDir === 'top' ? 'bottom' : 'top'
+    ];
+
+    const fits = (t: TileDefinition) => {
+        for (let r = 0; r < 4; r++) {
+            const rotSteps = r;
+            if (!isValidPlacement(board, jx, jy, t, rotSteps)) continue;
+            const edges = rotateEdges(t.edges, rotSteps);
+            if (neededDirs.every(d => edges[d][1] === 'road')) {
+                if (t.roadConnections) {
+                    const localD1 = getOriginalDir(neededDirs[0], rotSteps);
+                    const localD2 = getOriginalDir(neededDirs[1], rotSteps);
+                    if (t.roadConnections.some((conn: EdgeDirection[]) => conn.includes(localD1) && conn.includes(localD2))) return true;
+                }
+            }
+        }
+        return false;
+    };
+
+    const inHand = hand.some(fits);
+    const countInDeck = deck.filter(fits).length;
+    return { inHand, count: inHand ? 1 : countInDeck };
+}
+
+function rotateFieldSegment(seg: string, rotation: number): string {
+    const [dir, num] = seg.split('-');
+    const dirs: EdgeDirection[] = ['top', 'right', 'bottom', 'left'];
+    const oldIdx = dirs.indexOf(dir as EdgeDirection);
+    const newIdx = (oldIdx + rotation) % 4;
+    return `${dirs[newIdx]}-${num}`;
+}
+
+function getOriginalFieldSeg(seg: string, rotation: number): string {
+    const [dir, num] = seg.split('-');
+    const dirs: EdgeDirection[] = ['top', 'right', 'bottom', 'left'];
+    const idx = dirs.indexOf(dir as EdgeDirection);
+    const oldIdx = (idx - rotation + 4) % 4;
+    return `${dirs[oldIdx]}-${num}`;
+}
+
+function getFieldNeighbors(tile: PlacedTile, featureIdOrIdx: string | number): string[] {
+    const idx = typeof featureIdOrIdx === 'string' ? parseInt(featureIdOrIdx.split('-')[1]) : featureIdOrIdx;
+    const def = TILES_MAP[tile.typeId];
+    if (!def.fieldConnections || !def.fieldConnections[idx]) return [];
+    return def.fieldConnections[idx].map(seg => rotateFieldSegment(seg, tile.rotation));
+}
+
+function getOpenFieldEdges(ev: FeatureEvaluation, board: GameState['board']): { x: number, y: number, segment: string }[] {
+    const open: { x: number, y: number, segment: string }[] = [];
+    ev.components.forEach(comp => {
+        const t = board[`${comp.tileX},${comp.tileY}`];
+        if (!t) return;
+        const segments = getFieldNeighbors(t, comp.featureId);
+        segments.forEach(seg => {
+            const dir = seg.split('-')[0] as EdgeDirection;
+            const nx = comp.tileX + (dir === 'right' ? 1 : dir === 'left' ? -1 : 0);
+            const ny = comp.tileY + (dir === 'bottom' ? 1 : dir === 'top' ? -1 : 0);
+            if (!board[`${nx},${ny}`]) {
+                open.push({ x: comp.tileX, y: comp.tileY, segment: seg });
+            }
+        });
+    });
+    return open;
+}
+
+function findConnectingFieldTiles(board: GameState['board'], jx: number, jy: number, targetSeg: string, attackerSeg: string, hand: GameState['hands'][PlayerId], deck: GameState['deck']) {
+    const matchSeg = (s: string): string => {
+        const [dir, num] = s.split('-');
+        const opp: Record<string, string> = { top: 'bottom', bottom: 'top', left: 'right', right: 'left' };
+        const oppNum: Record<string, string> = { '0': '2', '1': '1', '2': '0' };
+        return `${opp[dir]}-${oppNum[num]}`;
+    };
+
+    const neededSeg1 = matchSeg(targetSeg);
+    const neededSeg2 = matchSeg(attackerSeg);
+
+    const fits = (t: TileDefinition) => {
+        if (!t.fieldConnections) return false;
+        for (let r = 0; r < 4; r++) {
+            const rotSteps = r;
+            if (!isValidPlacement(board, jx, jy, t, rotSteps)) continue;
+            const seg1_orig = getOriginalFieldSeg(neededSeg1, rotSteps);
+            const seg2_orig = getOriginalFieldSeg(neededSeg2, rotSteps);
+            if (t.fieldConnections.some(conn => conn.includes(seg1_orig) && conn.includes(seg2_orig))) return true;
+        }
+        return false;
+    };
+
+    const inHand = hand.some(fits);
+    const countInDeck = deck.filter(fits).length;
+    return { inHand, count: inHand ? 1 : countInDeck };
+}
+
+function findConnectingTiles(board: GameState['board'], jx: number, jy: number, targetDir: EdgeDirection, attackerDir: EdgeDirection, hand: GameState['hands'][PlayerId], deck: GameState['deck']) {
+    const neededDirs: EdgeDirection[] = [
+        targetDir === 'right' ? 'left' : targetDir === 'left' ? 'right' : targetDir === 'top' ? 'bottom' : 'top',
+        attackerDir === 'right' ? 'left' : attackerDir === 'left' ? 'right' : attackerDir === 'top' ? 'bottom' : 'top'
+    ];
+
+    const fits = (t: TileDefinition) => {
+        for (let r = 0; r < 4; r++) {
+            const rotSteps = r;
+            if (!isValidPlacement(board, jx, jy, t, rotSteps)) continue;
+            const edges = rotateEdges(t.edges, rotSteps);
+            if (neededDirs.every(d => edges[d][0] === 'city')) {
+                const localD1 = getOriginalDir(neededDirs[0], rotSteps);
+                const localD2 = getOriginalDir(neededDirs[1], rotSteps);
+                if (t.cityConnections && t.cityConnections.some((conn: EdgeDirection[]) => conn.includes(localD1) && conn.includes(localD2))) return true;
+            }
+        }
+        return false;
+    };
+
+    const inHand = hand.some(fits);
+    const countInDeck = deck.filter(fits).length;
+    return { inHand, count: inHand ? 1 : countInDeck };
+}
+
+function getOriginalDir(currentDir: EdgeDirection, rotation: number): EdgeDirection {
+    const dirs: EdgeDirection[] = ['top', 'right', 'bottom', 'left'];
+    const idx = dirs.indexOf(currentDir);
+    // rotation is steps (0, 1, 2, 3)
+    // To go back, we subtract.
+    const steps = rotation % 4;
+    return dirs[(idx - steps + 4) % 4];
+}
+
+function calculatePossibilityFactor(num_valid_tiles: number, all_tiles: number, numPlayers: number): number {
+    if (all_tiles === 0) return 0;
+    if (!Number.isInteger(num_valid_tiles) || !Number.isInteger(all_tiles) || !Number.isInteger(numPlayers)) {
+        throw new TypeError("n, N, and numPlayers must all be integers.");
+    }
+    if (num_valid_tiles > all_tiles) {
+        throw new Error("n cannot be greater than N.");
+    }
+
+    const player1Slots = Math.ceil(all_tiles / numPlayers);
+    const otherSlots = all_tiles - player1Slots;
+
+    // If there are more jokers than non-player1 slots,
+    // player 1 must get at least 1 joker
+    if (num_valid_tiles > otherSlots) {
+        return 1;
+    }
+
+    const probNeverGet = combination(otherSlots, num_valid_tiles) / combination(all_tiles, num_valid_tiles);
+    return 1 - probNeverGet;
+}
+
+function combination(a: number, b: number): number {
+    if (b < 0 || b > a) return 0;
+    if (b === 0 || b === a) return 1;
+
+    b = Math.min(b, a - b);
+    let result = 1;
+
+    for (let i = 1; i <= b; i++) {
+        result = (result * (a - b + i)) / i;
+    }
+
+    return result;
+}
+
+/**
+ * Calculates the score impact of monasteries that are still in progress.
+ */
+
+
+/**
+ * Calculates the score change for fields.
+ */
+export function evaluateGainScoreField(
+    originalBoard: GameState['board'],
+    simBoard: GameState['board'],
+    _x: number,
+    _y: number,
+    players: PlayerId[],
+    context?: AITurnContext,
+    weights?: Partial<AIWeights>
+): Record<PlayerId | 'neutral', number> {
+    const scoreBefore = context ? context.baseFieldScore : calculateFieldScore(originalBoard, players, weights);
+    const scoreAfter = calculateFieldScore(simBoard, players, weights);
+
+    const results: Record<PlayerId | 'neutral', number> = { neutral: scoreAfter.neutral - scoreBefore.neutral };
+    players.forEach(p => {
+        results[p] = (scoreAfter[p] || 0) - (scoreBefore[p] || 0);
+    });
+    return results;
+}
+
+// --- Internal Helpers ---
+
+export function getFeatureOwnership(evaluation: FeatureEvaluation, board: GameState['board']): Record<PlayerId, number> {
+    const meepleCounts: Record<PlayerId, number> = {};
+    evaluation.components.forEach(comp => {
         const t = board[`${comp.tileX},${comp.tileY}`];
         if (t) {
             t.meeples.filter(m => m.featureId === comp.featureId).forEach(m => {
                 const pid = m.meeple.playerId;
-                meepleCounts[pid] = (meepleCounts[pid] || 0) + 1;
+                const weight = m.meeple.type === 'large' ? 2 : 1;
+                meepleCounts[pid] = (meepleCounts[pid] || 0) + weight;
             });
         }
     });
     return meepleCounts;
 }
 
-// ---------------------------------------------------------
-// SCORE GENERATING ACTIONS
-// ---------------------------------------------------------
-
-export function evaluateGainCity(board: GameState['board'], x: number, y: number, fId: string, aiPlayerId: PlayerId, placedMeepleFeatureId: string | null, simTile: PlacedTile): ActionImpact {
-    if (!fId.startsWith('city')) return emptyImpact;
-    const evaluation = evaluateFeature(board, x, y, 'city', parseInt(fId.split('-')[1]));
-    const ownership = getFeatureOwnership(evaluation, board, fId);
-
-    // Determine if we actually own it
-    const ourCount = ownership[aiPlayerId] || 0;
-    // If we don't own it, and we didn't just place a meeple here, it's not a score gain for us.
-    if (ourCount === 0 && placedMeepleFeatureId !== fId) return emptyImpact;
-
-    let points = getFeatureDelta(board, fId, simTile);
-    if (evaluation.isComplete) points += AI_CONSTANTS.FEATURES.COMPLETION_BONUS_CITY;
-
-    return { selfGain: points, opponentDelta: {} };
+export function getFeatureWinners(ownership: Record<PlayerId, number>): (PlayerId | 'neutral')[] {
+    const counts = Object.values(ownership);
+    if (counts.length === 0) return ['neutral'];
+    const max = Math.max(...counts);
+    return Object.keys(ownership)
+        .filter(pid => ownership[Number(pid)] === max)
+        .map(Number);
 }
 
-export function evaluateGainRoad(board: GameState['board'], x: number, y: number, fId: string, aiPlayerId: PlayerId, placedMeepleFeatureId: string | null, simTile: PlacedTile): ActionImpact {
-    if (!fId.startsWith('road')) return emptyImpact;
-    const evaluation = evaluateFeature(board, x, y, 'road', parseInt(fId.split('-')[1]));
-    const ownership = getFeatureOwnership(evaluation, board, fId);
-
-    if ((ownership[aiPlayerId] || 0) === 0 && placedMeepleFeatureId !== fId) return emptyImpact;
-
-    let points = getFeatureDelta(board, fId, simTile);
-    if (evaluation.isComplete) points += AI_CONSTANTS.FEATURES.COMPLETION_BONUS_ROAD;
-
-    return { selfGain: points, opponentDelta: {} };
-}
-
-export function evaluateGainMonastery(board: GameState['board'], x: number, y: number, fId: string, aiPlayerId: PlayerId, placedMeepleFeatureId: string | null, simTile: PlacedTile): ActionImpact {
-    if (!fId.startsWith('monastery')) return emptyImpact;
-    const evaluation = evaluateMonastery(board, x, y);
-    const ownership = getFeatureOwnership(evaluation, board, fId, x, y);
-
-    if ((ownership[aiPlayerId] || 0) === 0 && placedMeepleFeatureId !== fId) return emptyImpact;
-
-    let points = getFeatureDelta(board, fId, simTile);
-    if (evaluation.isComplete) points += 10;
-
-    return { selfGain: points, opponentDelta: {} };
-}
-
-export function evaluateGainField(board: GameState['board'], x: number, y: number, fId: string, _aiPlayerId: PlayerId, placedMeepleFeatureId: string | null): ActionImpact {
-    if (!fId.startsWith('field')) return emptyImpact;
-    const evaluation = evaluateFeature(board, x, y, 'field', parseInt(fId.split('-')[1]));
-
-    // We only gain points for a field if we are actively taking control of it by placing a meeple right now.
-    // Otherwise, extending an already-owned field has 0 base delta (points come from completing adjacent cities, which is too complex to delta-track here).
-    if (placedMeepleFeatureId !== fId) return emptyImpact;
-
-    let points = 0;
-    if (fId.startsWith('field')) {
-        // Count completed cities adjacent to this field
-        const adjacentCityKeys = new Set<string>();
-        evaluation.components.forEach(comp => {
-            const compTile = board[`${comp.tileX},${comp.tileY}`];
-            if (!compTile) return;
-            const compDef = TILES_MAP[compTile.typeId];
-            if (!compDef?.adjacentCities) return;
-
-            const localFieldIdx = parseInt(comp.featureId.split('-')[1], 10);
-            const adjacentCityIndices = compDef.adjacentCities[localFieldIdx];
-            if (!adjacentCityIndices) return;
-
-            for (const cIdx of adjacentCityIndices) {
-                const ce = evaluateFeature(board, compTile.x, compTile.y, 'city', cIdx);
-                if (ce.isComplete) {
-                    adjacentCityKeys.add(
-                        ce.components.map(c => `${c.tileX},${c.tileY},${c.featureId}`).sort().join('|')
-                    );
-                }
-            }
-        });
-        points += adjacentCityKeys.size * AI_CONSTANTS.FEATURES.FIELD_MULTIPLIER;
-    }
-    return { selfGain: points, opponentDelta: {} };
-}
-
-// ---------------------------------------------------------
-// MASTER ACTION COMPOSER
-// ---------------------------------------------------------
-
-export function evaluateAllActions(
-    _originalState: GameState,
+function calculateInProgressDelta(
+    originalBoard: GameState['board'],
     simBoard: GameState['board'],
     x: number,
     y: number,
-    simTile: PlacedTile,
-    aiPlayerId: PlayerId,
-    meepleFeatureId: string | null
-): ActionImpact {
-    const tileDef = TILES_MAP[simTile.typeId];
-    if (!tileDef) return emptyImpact;
+    type: 'city' | 'road',
+    players: PlayerId[],
+    context?: AITurnContext,
+    weights?: Partial<AIWeights>
+): Record<PlayerId | 'neutral', number> {
+    const scoreBefore = context ? (type === 'city' ? context.baseCityInProgress : context.baseRoadInProgress) : calculateTotalInProgress(originalBoard, players, type);
+    const scoreAfter = calculateTotalInProgress(simBoard, players, type);
 
-    let totalImpact: ActionImpact = { selfGain: 0, opponentDelta: {} };
+    const results: Record<PlayerId | 'neutral', number> = { neutral: scoreAfter.neutral - scoreBefore.neutral };
+    players.forEach(p => {
+        results[p] = (scoreAfter[p] || 0) - (scoreBefore[p] || 0);
+    });
 
-    const featuresToEvaluate: string[] = [];
-    if (tileDef.cityConnections) tileDef.cityConnections.forEach((_, i: number) => featuresToEvaluate.push(`city-${i}`));
-    if (tileDef.roadConnections) tileDef.roadConnections.forEach((_, i: number) => featuresToEvaluate.push(`road-${i}`));
-    if (tileDef.fieldConnections) tileDef.fieldConnections.forEach((_, i: number) => featuresToEvaluate.push(`field-${i}`));
-    if (tileDef.monastery) featuresToEvaluate.push(`monastery-0`);
+    // Special Rule: One-Sided City Bonus (G, H, I, J, K, L, M)
+    // Only applies if the tile at (x, y) has a size-1 city area.
+    if (type === 'city') {
+        const tile = simBoard[`${x},${y}`];
+        if (tile && ['G', 'H', 'I', 'J', 'K', 'L', 'M'].includes(tile.typeId)) {
+            const def = TILES_MAP[tile.typeId];
+            if (def?.cityConnections) {
+                def.cityConnections.forEach((_, i) => {
+                    const ev = evaluateFeature(simBoard, x, y, 'city', i);
+                    if (ev.components.length === 1) { // Size 1 city (not connected)
+                        const ownership = getFeatureOwnership(ev, simBoard);
+                        const winners = getFeatureWinners(ownership);
 
-    for (const fId of featuresToEvaluate) {
-        // Gain Actions (All AIs)
-        totalImpact = addImpacts(totalImpact, evaluateGainCity(simBoard, x, y, fId, aiPlayerId, meepleFeatureId, simTile));
-        totalImpact = addImpacts(totalImpact, evaluateGainRoad(simBoard, x, y, fId, aiPlayerId, meepleFeatureId, simTile));
-        totalImpact = addImpacts(totalImpact, evaluateGainMonastery(simBoard, x, y, fId, aiPlayerId, meepleFeatureId, simTile));
-        totalImpact = addImpacts(totalImpact, evaluateGainField(simBoard, x, y, fId, aiPlayerId, meepleFeatureId));
+                        winners.forEach(w => {
+                            if (w === 'neutral') {
+                                results['neutral'] += weights?.EXTRA_POINT_ONE_SIDE_CITY_NEUTRAL ?? 1;
+                            } else {
+                                results[w] += weights?.EXTRA_POINT_ONE_SIDE_CITY_PLAYER ?? 0.5;
+                            }
+                        });
+                    }
+                });
+            }
+        }
     }
 
-    return totalImpact;
+    return results;
 }
+
+function calculateTotalInProgress(
+    board: GameState['board'],
+    players: PlayerId[],
+    type: FeatureType
+): Record<PlayerId | 'neutral', number> {
+    const scoredFeatures = new Set<string>();
+    const results: Record<PlayerId | 'neutral', number> = { neutral: 0 };
+    players.forEach(p => { results[p] = 0; });
+
+    for (const tileKey of Object.keys(board)) {
+        const tile = board[tileKey];
+        const def = TILES_MAP[tile.typeId];
+        if (!def) continue;
+
+        const processEval = (ev: FeatureEvaluation) => {
+            if (ev.isComplete) return;
+
+            const featureKey = ev.components.map(c => `${c.tileX},${c.tileY},${c.featureId}`).sort().join('|');
+            if (scoredFeatures.has(featureKey)) return;
+            scoredFeatures.add(featureKey);
+
+            const ownership = getFeatureOwnership(ev, board);
+            const winners = getFeatureWinners(ownership);
+
+            const uniqueTiles = new Set(ev.components.map(c => `${c.tileX},${c.tileY}`));
+            let pts = uniqueTiles.size;
+            if (type === 'city') {
+                uniqueTiles.forEach(tk => {
+                    const t = board[tk];
+                    const tDef = t ? TILES_MAP[t.typeId] : null;
+                    if (tDef?.pennants) pts += tDef.pennants;
+                });
+            } else if (type === 'monastery') {
+                pts = ev.components.length;
+            }
+
+            winners.forEach(w => {
+                if (w === 'neutral') {
+                    // Rule 1: No neutral monasteries
+                    if (type === 'monastery') return;
+                    // Rule 2: Connection only (more than one tile)
+                    if (ev.components.length <= 1) return;
+
+                    results['neutral'] = Math.max(results['neutral'], pts);
+                } else {
+                    results[w] = (results[w] || 0) + pts;
+                }
+            });
+        };
+
+        if (type === 'city' && def.cityConnections) {
+            def.cityConnections.forEach((_, i) => processEval(evaluateFeature(board, tile.x, tile.y, 'city', i)));
+        } else if (type === 'road' && def.roadConnections) {
+            def.roadConnections.forEach((_, i) => processEval(evaluateFeature(board, tile.x, tile.y, 'road', i)));
+        } else if (type === 'monastery' && def.monastery) {
+            processEval(evaluateMonastery(board, tile.x, tile.y));
+        }
+    }
+    return results;
+}
+
+function calculateFieldScore(
+    board: GameState['board'],
+    players: PlayerId[],
+    weights?: Partial<AIWeights>
+): Record<PlayerId | 'neutral', number> {
+    const fieldMultiplier = weights?.FIELD_MULTIPLIER ?? 3;
+    const scoredFields = new Set<string>();
+    const results: Record<PlayerId | 'neutral', number> = { neutral: 0 };
+    players.forEach(p => { results[p] = 0; });
+
+    for (const tileKey of Object.keys(board)) {
+        const tile = board[tileKey];
+        const def = TILES_MAP[tile.typeId];
+        if (!def || !def.fieldConnections) continue;
+
+        for (let i = 0; i < def.fieldConnections.length; i++) {
+            const ev = evaluateFeature(board, tile.x, tile.y, 'field', i);
+            const fieldKey = ev.components.map(c => `${c.tileX},${c.tileY},${c.featureId}`).sort().join('|');
+            if (scoredFields.has(fieldKey)) continue;
+            scoredFields.add(fieldKey);
+
+            const ownership = getFeatureOwnership(ev, board);
+            const winners = getFeatureWinners(ownership);
+
+            // Count completed cities adjacent to this field
+            const adjacentCityKeys = new Set<string>();
+            ev.components.forEach(comp => {
+                const compTile = board[`${comp.tileX},${comp.tileY}`];
+                if (!compTile) return;
+                const compDef = TILES_MAP[compTile.typeId];
+                if (!compDef?.adjacentCities) return;
+
+                const localFieldIdx = parseInt(comp.featureId.split('-')[1], 10);
+                const adjacentCityIndices = compDef.adjacentCities[localFieldIdx];
+                if (!adjacentCityIndices) return;
+
+                for (const cIdx of adjacentCityIndices) {
+                    const ce = evaluateFeature(board, compTile.x, compTile.y, 'city', cIdx);
+                    if (ce.isComplete) {
+                        adjacentCityKeys.add(
+                            ce.components.map(c => `${c.tileX},${c.tileY},${c.featureId}`).sort().join('|')
+                        );
+                    }
+                }
+            });
+            const fieldPoints = adjacentCityKeys.size * fieldMultiplier;
+
+            winners.forEach(w => {
+                if (w === 'neutral') {
+                    results['neutral'] = Math.max(results['neutral'], fieldPoints);
+                } else {
+                    results[w] = (results[w] || 0) + fieldPoints;
+                }
+            });
+        }
+    }
+    return results;
+}
+
+/**
+ * Calculates how many meeples of a specific player will be returned 
+ * by the current tile placement (including the meeple just placed).
+ */
+export function evaluateReturnedMeeples(
+    board: GameState['board'],
+    x: number,
+    y: number,
+    simTile: PlacedTile,
+    playerId: PlayerId
+): number {
+    const tileDef = TILES_MAP[simTile.typeId];
+    if (!tileDef) return 0;
+
+    let returnedCount = 0;
+    const scoredFeatures = new Set<string>();
+
+    const processFeature = (evaluation: FeatureEvaluation) => {
+        if (!evaluation.isComplete) return;
+
+        const componentIds = evaluation.components.map(c => `${c.tileX},${c.tileY},${c.featureId}`).sort();
+        const featureKey = componentIds.join('|');
+        if (scoredFeatures.has(featureKey)) return;
+        scoredFeatures.add(featureKey);
+
+        // Count the physical meeples on this feature for this player.
+        evaluation.components.forEach(comp => {
+            const t = board[`${comp.tileX},${comp.tileY}`];
+            if (t) {
+                t.meeples.forEach(m => {
+                    if (m.featureId === comp.featureId && m.meeple.playerId === playerId) {
+                        returnedCount++;
+                    }
+                });
+            }
+        });
+    };
+
+    if (tileDef.cityConnections) {
+        tileDef.cityConnections.forEach((_, i) => processFeature(evaluateFeature(board, x, y, 'city', i)));
+    }
+    if (tileDef.roadConnections) {
+        tileDef.roadConnections.forEach((_, i) => processFeature(evaluateFeature(board, x, y, 'road', i)));
+    }
+    if (tileDef.monastery) {
+        processFeature(evaluateMonastery(board, x, y));
+    }
+
+    // Check adjacent monasteries
+    for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+            if (dx === 0 && dy === 0) continue;
+            const nx = x + dx;
+            const ny = y + dy;
+            const nTile = board[`${nx},${ny}`];
+            if (nTile) {
+                const nDef = TILES_MAP[nTile.typeId];
+                if (nDef?.monastery) {
+                    processFeature(evaluateMonastery(board, nx, ny));
+                }
+            }
+        }
+    }
+
+    return returnedCount;
+}
+
+
+export function evaluateCityOpenEdgeDelta(
+    boardBefore: GameState['board'],
+    boardAfter: GameState['board'],
+    x: number,
+    y: number,
+    players: PlayerId[]
+): Record<PlayerId | 'neutral', number> {
+    const scoredFeaturesAfter = new Set<string>();
+    const results: Record<PlayerId | 'neutral', number> = { neutral: 0 };
+    players.forEach(p => { results[p] = 0; });
+
+    const tile = boardAfter[`${x},${y}`];
+    if (!tile) return results;
+    const def = TILES_MAP[tile.typeId];
+    if (!def || !def.cityConnections) return results;
+
+    for (let i = 0; i < def.cityConnections.length; i++) {
+        const evAfter = evaluateFeature(boardAfter, tile.x, tile.y, 'city', i);
+        const featureKey = evAfter.components.map(c => `${c.tileX},${c.tileY},${c.featureId}`).sort().join('|');
+        if (scoredFeaturesAfter.has(featureKey)) continue;
+        scoredFeaturesAfter.add(featureKey);
+
+            if (evAfter.isComplete || evAfter.components.length < 2) continue;
+
+            const vAfter = getFeatureVacancies(evAfter, boardAfter).size;
+
+            // Find this feature's vacancies in boardBefore
+            let vBefore = 0;
+            const seenInBefore = new Set<string>();
+            const totalBeforeUniqueVacancies = new Set<string>();
+
+            evAfter.components.forEach(c => {
+                if (c.tileX === x && c.tileY === y) return;
+                if (boardBefore[`${c.tileX},${c.tileY}`]) {
+                    const evBefore = evaluateFeature(boardBefore, c.tileX, c.tileY, 'city', parseInt(c.featureId.split('-')[1], 10));
+                    const bKey = evBefore.components.map(bc => `${bc.tileX},${bc.tileY},${bc.featureId}`).sort().join('|');
+                    if (!seenInBefore.has(bKey)) {
+                        seenInBefore.add(bKey);
+                        getFeatureVacancies(evBefore, boardBefore).forEach(v => totalBeforeUniqueVacancies.add(v));
+                    }
+                }
+            });
+            vBefore = totalBeforeUniqueVacancies.size;
+
+            const delta = vBefore - vAfter;
+            if (delta !== 0) {
+                const ownership = getFeatureOwnership(evAfter, boardAfter);
+                const winners = getFeatureWinners(ownership);
+                winners.forEach(w => {
+                    results[w] = (results[w] || 0) + delta;
+                });
+            }
+        }
+    return results;
+}
+
+
+function getFeatureVacancies(ev: FeatureEvaluation, board: GameState['board']): Set<string> {
+    const vacancies = new Set<string>();
+    const openEdges = getOpenCityEdges(ev, board);
+    openEdges.forEach(oe => {
+        const nx = oe.x + (oe.dir === 'right' ? 1 : oe.dir === 'left' ? -1 : 0);
+        const ny = oe.y + (oe.dir === 'bottom' ? 1 : oe.dir === 'top' ? -1 : 0);
+        vacancies.add(`${nx},${ny}`);
+    });
+    return vacancies;
+}
+
+
+
 

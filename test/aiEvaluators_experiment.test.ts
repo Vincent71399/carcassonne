@@ -9,7 +9,7 @@ import {
     evaluateRoadAttack as evaluateRoadAttackFn,
     evaluateFieldAttack,
     evaluateReturnedMeeples
-} from '../src/engine/aiEvaluators_experiment';
+} from '../src/engine/aiEvaluators';
 import { TILES_MAP } from '../src/engine/tiles';
 import { PlayerId, GameState, PlacedTile } from '../src/engine/types';
 

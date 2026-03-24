@@ -2,9 +2,9 @@ import type { GameState, PlayerId, PlacedTile, TileDefinition, PlayerType, AIWei
 import { getValidPlacements } from './board';
 
 import { AI_CONSTANTS, AI_CONSTANTS_EXPERIMENT } from './aiConstants';
-import { evaluateAllActions, type ActionImpact } from './aiEvaluators';
-import * as experimental from './aiEvaluators_experiment';
-import { evaluateReturnedMeeples, createAITurnContext, type AITurnContext } from './aiEvaluators_experiment';
+import { evaluateAllActions, type ActionImpact } from './aiEvaluatorsNoob.ts';
+import * as experimental from './aiEvaluators.ts';
+import { type AITurnContext } from './aiEvaluators.ts';
 import { getOccupiedFeaturesOnTile } from './features';
 
 export interface AIMove {
@@ -25,7 +25,7 @@ export function calculateBestAIMove(state: GameState, aiPlayerId: PlayerId): AIM
     let bestMove: AIMove | null = null;
     let bestScore = -Infinity;
 
-    const context = createAITurnContext(state.board, aiPlayerId, state.players);
+    const context = experimental.createAITurnContext(state.board, aiPlayerId, state.players);
 
     for (let i = 0; i < currentHand.length; i++) {
         const tile = currentHand[i];
@@ -78,7 +78,7 @@ function calculateWeightedScore(
     // Returned meeples can be checked by comparing board states or using evaluateGainScoreComplete info.
     // Actually, experimental.evaluateMeepleUsage is quite sophisticated about "weights".
     // Let's use it for the active player.
-    const returnedMeeples = evaluateReturnedMeeples(simBoard, x, y, simTile, aiPlayerId);
+    const returnedMeeples = experimental.evaluateReturnedMeeples(simBoard, x, y, simTile, aiPlayerId);
 
     const countBefore = state.remainingMeeples[aiPlayerId]?.standard || 0;
     const countAfter = countBefore - (meepleFeatureId ? 1 : 0) + returnedMeeples;
