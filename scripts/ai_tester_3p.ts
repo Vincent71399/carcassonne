@@ -1,13 +1,15 @@
 import { createInitialState, placeTile, discardTile, placeMeeple, skipMeeple, finishScoring, advanceTurn } from '../src/engine/state';
 import { calculateBestAIMove } from '../src/engine/ai';
-import type { PlayerType, GameState } from '../src/engine/types';
+import type { PlayerType, GameState, MeepleType } from '../src/engine/types';
+
+const ENABLE_LARGER_MEEPLE = true;
 
 interface LocalTestState extends GameState {
-    pendingMeepleMove?: { featureId: string; meepleType: 'standard' } | null;
+    pendingMeepleMove?: { featureId: string; meepleType: MeepleType } | null;
 }
 
 async function runMatch(types: Record<number, PlayerType>, names: Record<number, string>) {
-    const state = createInitialState(names, types);
+    const state = createInitialState(names, types, ENABLE_LARGER_MEEPLE);
 
     let moveCount = 0;
     while (state.turnPhase !== 'GameOver' && moveCount < 1000) {
@@ -39,7 +41,7 @@ async function runMatch(types: Record<number, PlayerType>, names: Record<number,
         } else if (state.turnPhase === 'PlaceMeeple') {
             const meepleMove = (state as LocalTestState).pendingMeepleMove;
             if (meepleMove) {
-                placeMeeple(state, currentPlayer, meepleMove.featureId);
+                placeMeeple(state, currentPlayer, meepleMove.featureId, meepleMove.meepleType);
             } else {
                 skipMeeple(state, currentPlayer);
             }
