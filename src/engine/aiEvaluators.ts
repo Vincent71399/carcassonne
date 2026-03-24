@@ -243,8 +243,18 @@ export function evaluateFieldAttack(
                             
                             const A_gain = A_is_already_winner ? 0 : citiesGainedByAttacker.size * fieldMultiplier * pFactor;
 
-                            if (A_gain > 0 && A_total >= O_count) results[attackerId] = Math.max(results[attackerId], A_gain);
-                            if (O_gain > 0 && O_count >= A_total) results[targetOwnerId] = Math.max(results[targetOwnerId], O_gain);
+                            if (A_gain > 0 && A_total >= O_count) {
+                                results[attackerId] = Math.max(results[attackerId], A_gain);
+                            }
+
+                            if (A_total > O_count) {
+                                const O_loss = targetCities.size * fieldMultiplier * pFactor;
+                                const current = results[targetOwnerId] <= 0 ? results[targetOwnerId] : 0;
+                                results[targetOwnerId] = Math.min(current, -O_loss);
+                            } else if (O_gain > 0 && O_count >= A_total) {
+                                const current = results[targetOwnerId] >= 0 ? results[targetOwnerId] : 0;
+                                results[targetOwnerId] = Math.max(current, O_gain);
+                            }
                         }
                     }
                 });
@@ -563,9 +573,13 @@ export function evaluateCityAttack(
                             results[attackerId] = Math.max(results[attackerId], targetValue * pFactor);
                         }
 
-                        // Opponent Gain (if they can reach/exceed attacker)
-                        if (O_count >= A_total) {
-                            results[targetOwnerId] = Math.max(results[targetOwnerId], attackerCityValue * pFactor);
+                        // Opponent Gain/Loss
+                        if (A_total > O_count) {
+                            const current = results[targetOwnerId] <= 0 ? results[targetOwnerId] : 0;
+                            results[targetOwnerId] = Math.min(current, -targetValue * pFactor);
+                        } else if (O_count >= A_total) {
+                            const current = results[targetOwnerId] >= 0 ? results[targetOwnerId] : 0;
+                            results[targetOwnerId] = Math.max(current, attackerCityValue * pFactor);
                         }
                     }
                 });
@@ -693,9 +707,13 @@ export function evaluateRoadAttack(
                             results[attackerId] = Math.max(results[attackerId], targetValue * pFactor);
                         }
 
-                        // Opponent Gain
-                        if (O_count >= A_total) {
-                            results[targetOwnerId] = Math.max(results[targetOwnerId], attackerRoadValue * pFactor);
+                        // Opponent Gain/Loss
+                        if (A_total > O_count) {
+                            const current = results[targetOwnerId] <= 0 ? results[targetOwnerId] : 0;
+                            results[targetOwnerId] = Math.min(current, -targetValue * pFactor);
+                        } else if (O_count >= A_total) {
+                            const current = results[targetOwnerId] >= 0 ? results[targetOwnerId] : 0;
+                            results[targetOwnerId] = Math.max(current, attackerRoadValue * pFactor);
                         }
                     }
                 });
