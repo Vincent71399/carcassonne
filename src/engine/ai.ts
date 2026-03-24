@@ -223,8 +223,9 @@ export function getScoredMoves(
                 if (tileDef.roadConnections) tileDef.roadConnections.forEach((_, i) => featuresToTry.push(`road-${i}`));
                 if (tileDef.monastery) featuresToTry.push(`monastery-0`);
 
-                // Fields: Easy and Medium AI CAN place farmers
-                if (aiType !== 'ai-noob' && tileDef.fieldConnections) {
+                // Fields: Easy and Medium AI CAN place farmers.
+                // Noob AI can also place them if larger meeple is enabled and available.
+                if ((aiType !== 'ai-noob' || largeMeeples > 0) && tileDef.fieldConnections) {
                     tileDef.fieldConnections.forEach((_, i) => featuresToTry.push(`field-${i}`));
                 }
 
@@ -234,9 +235,17 @@ export function getScoredMoves(
                         for (const mType of availableMeeples) {
                             simTile.meeples.push({ meeple: { id: 'sim-meeple', playerId: activePlayerId, type: mType }, featureId: fId });
 
-                            const scoreWithMeeple = weights
+                            let scoreWithMeeple = weights
                                 ? calculateWeightedScore(state, simBoard, placement.x, placement.y, simTile, activePlayerId, fId, mType, weights, context)
                                 : calculateFinalScore(evaluateAllActions(state, simBoard, placement.x, placement.y, simTile, activePlayerId, fId)) + AI_CONSTANTS.NOOB.MEEPLE_PLACEMENT_BONUS;
+
+                            // For Noob AI, give the larger meeple a 15% chance to be preferred 
+                            // over a standard meeple for cities and fields.
+                            if (aiType === 'ai-noob' && (fId.startsWith('city') || fId.startsWith('field'))) {
+                                if (mType === 'large' && Math.random() < 0.15) {
+                                    scoreWithMeeple += 0.01;
+                                }
+                            }
 
                             simTile.meeples.pop();
 
