@@ -104,10 +104,20 @@ function calculateWeightedScore(
     let totalScore = 0;
 
     let cityBonus = 1, roadBonus = 1, fieldBonus = 1;
+    let cityAttackBonus = 1, roadAttackBonus = 1, fieldAttackBonus = 1;
     if (meepleType === 'large' && meepleFeatureId) {
-        if (meepleFeatureId.startsWith('city')) cityBonus = weights.LARGER_MEEPLE_CITY_BONUS_RATE || 1;
-        else if (meepleFeatureId.startsWith('road')) roadBonus = weights.LARGER_MEEPLE_ROAD_BONUS_RATE || 1;
-        else if (meepleFeatureId.startsWith('field')) fieldBonus = weights.LARGER_MEEPLE_FIELD_BONUS_RATE || 1;
+        if (meepleFeatureId.startsWith('city')) {
+            cityBonus = weights.LARGER_MEEPLE_CITY_BONUS_RATE || 1;
+            cityAttackBonus = weights.LARGER_MEEPLE_ATTACK_CITY_BONUS_RATE || 1;
+        }
+        else if (meepleFeatureId.startsWith('road')) {
+            roadBonus = weights.LARGER_MEEPLE_ROAD_BONUS_RATE || 1;
+            roadAttackBonus = weights.LARGER_MEEPLE_ATTACK_ROAD_BONUS_RATE || 1;
+        }
+        else if (meepleFeatureId.startsWith('field')) {
+            fieldBonus = weights.LARGER_MEEPLE_FIELD_BONUS_RATE || 1;
+            fieldAttackBonus = weights.LARGER_MEEPLE_ATTACK_FIELD_BONUS_RATE || 1;
+        }
     }
 
     // 1. Self weights
@@ -117,9 +127,9 @@ function calculateWeightedScore(
     totalScore += monasteryInProgress[aiPlayerId] * weights.MONASTERY_IN_PROGRESS;
     totalScore += field[aiPlayerId] * weights.FIELD * game_end_factor * fieldBonus;
     totalScore += meepleUsageScore * weights.MEEPLE_USAGE;
-    totalScore += cityAttack[aiPlayerId] * weights.CITY_ATTACK;
-    totalScore += roadAttack[aiPlayerId] * weights.ROAD_ATTACK;
-    totalScore += fieldAttack[aiPlayerId] * weights.FIELD_ATTACK * game_end_factor;
+    totalScore += cityAttack[aiPlayerId] * weights.CITY_ATTACK * cityAttackBonus;
+    totalScore += roadAttack[aiPlayerId] * weights.ROAD_ATTACK * roadAttackBonus;
+    totalScore += fieldAttack[aiPlayerId] * weights.FIELD_ATTACK * game_end_factor * fieldAttackBonus;
     totalScore += (cityOpenEdgeDelta[aiPlayerId] || 0) * weights.CITY_OPEN_EDGE;
 
     // 2. Neutral weights
