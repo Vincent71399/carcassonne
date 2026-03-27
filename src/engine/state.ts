@@ -52,6 +52,7 @@ export function createInitialState(
         midGameScoreBreakdown: {},
         scoreUpdateKey: 0,
         endGameMode: false,
+        useLargeMeeple,
     };
 
     for (const p of players) {

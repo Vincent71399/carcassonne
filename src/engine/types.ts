@@ -105,6 +105,7 @@ export interface GameState {
         fieldAttack: Record<PlayerId | 'neutral', number>;
         cityOpenEdgeDelta: Record<PlayerId | 'neutral', number>;
     };
+    useLargeMeeple?: boolean;
 }
 
 export interface AIWeights {

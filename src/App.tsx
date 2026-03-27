@@ -887,7 +887,7 @@ function App() {
             setShowFieldView={setShowFieldView}
             handlePlayAgain={
               onlineConfig ? undefined : () => {
-                setGameState(createInitialState(gameState.playerNames, gameState.playerTypes));
+                setGameState(createInitialState(gameState.playerNames, gameState.playerTypes, gameState.useLargeMeeple));
                 setSelectedHandIndex(-1);
                 setRotation(0);
                 setShowDeckViewer(false);
