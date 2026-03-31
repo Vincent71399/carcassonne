@@ -789,13 +789,13 @@ function App() {
         validPlacements={gameState.turnPhase === 'PlaceTile' ? validPlacements : []}
         meepleTilePosition={
           gameState.turnPhase === 'PlaceMeeple' &&
-            (gameState.remainingMeeples[currentPlayer]?.standard ?? 0) > 0
+            ((gameState.remainingMeeples[currentPlayer]?.standard ?? 0) > 0 || (gameState.remainingMeeples[currentPlayer]?.large ?? 0) > 0)
             ? gameState.recentTilePosition
             : null
         }
         disabledHotspots={
           gameState.turnPhase === 'PlaceMeeple' && gameState.recentTilePosition &&
-            (gameState.remainingMeeples[currentPlayer]?.standard ?? 0) > 0
+            ((gameState.remainingMeeples[currentPlayer]?.standard ?? 0) > 0 || (gameState.remainingMeeples[currentPlayer]?.large ?? 0) > 0)
             ? getOccupiedFeaturesOnTile(gameState.board, gameState.recentTilePosition.x, gameState.recentTilePosition.y)
             : []
         }
