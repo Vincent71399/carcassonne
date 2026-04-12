@@ -1,4 +1,4 @@
-import type { GameState, PlayerId, PlacedTile, FeatureType, EdgeDirection, TileDefinition, AIWeights } from './types';
+import type { GameState, PlayerId, PlacedTile, FeatureType, EdgeDirection, TileDefinition, AIWeights, PlayerType } from './types';
 import { evaluateFeature, evaluateMonastery, type FeatureEvaluation } from './features';
 import { TILES_MAP } from './tiles';
 
@@ -104,7 +104,9 @@ export function evaluateFieldAttack(
     currentPos: { x: number, y: number },
     hand: GameState['hands'][PlayerId],
     deck: GameState['deck'],
-    context?: AITurnContext
+    context?: AITurnContext,
+    playerTypes?: Record<PlayerId, PlayerType>,
+    weights?: Partial<AIWeights>
 ): Record<PlayerId | 'neutral', number> {
     const results: Record<PlayerId | 'neutral', number> = { neutral: 0 } as Record<PlayerId | 'neutral', number>;
     allPlayerIds.forEach(pid => { results[pid] = 0; });
@@ -154,6 +156,8 @@ export function evaluateFieldAttack(
         const targetOwnerWinner = targetWinners.find(w => w !== 'neutral' && w !== attackerId);
         if (!targetOwnerWinner) return;
         const targetOwnerId = Number(targetOwnerWinner);
+        const isTargetAI = playerTypes?.[targetOwnerId]?.startsWith('ai') || false;
+        const attackRate = isTargetAI ? (weights?.ATTACK_AI_RATE_FIELD ?? 1) : 1;
 
         const seenJunctionsForThisTarget = new Set<string>();
 
@@ -241,19 +245,19 @@ export function evaluateFieldAttack(
 
                             const fieldMultiplier = 3; // Default or from context?
                             
-                            const A_gain = A_is_already_winner ? 0 : citiesGainedByAttacker.size * fieldMultiplier * pFactor;
+                            const A_gain = A_is_already_winner ? 0 : citiesGainedByAttacker.size * fieldMultiplier * pFactor * attackRate;
 
                             if (A_gain > 0 && A_total >= O_count) {
                                 results[attackerId] = Math.max(results[attackerId], A_gain);
                             }
 
                             if (A_total > O_count) {
-                                const O_loss = targetCities.size * fieldMultiplier * pFactor;
+                                const O_loss = targetCities.size * fieldMultiplier * pFactor * attackRate;
                                 const current = results[targetOwnerId] <= 0 ? results[targetOwnerId] : 0;
                                 results[targetOwnerId] = Math.min(current, -O_loss);
                             } else if (O_gain > 0 && O_count >= A_total) {
                                 const current = results[targetOwnerId] >= 0 ? results[targetOwnerId] : 0;
-                                results[targetOwnerId] = Math.max(current, O_gain);
+                                results[targetOwnerId] = Math.max(current, O_gain * attackRate);
                             }
                         }
                     }
@@ -463,7 +467,9 @@ export function evaluateCityAttack(
     lastMovePos: { x: number, y: number },
     attackerHand: GameState['hands'][PlayerId],
     deck: GameState['deck'],
-    context?: AITurnContext
+    context?: AITurnContext,
+    playerTypes?: Record<PlayerId, PlayerType>,
+    weights?: Partial<AIWeights>
 ): Record<PlayerId | 'neutral', number> {
     const results: Record<PlayerId | 'neutral', number> = { neutral: 0 };
     players.forEach(p => { results[p] = 0; });
@@ -513,6 +519,8 @@ export function evaluateCityAttack(
         const targetOwnerWinner = targetWinners.find(w => w !== 'neutral' && w !== attackerId);
         if (!targetOwnerWinner) return;
         const targetOwnerId = Number(targetOwnerWinner);
+        const isTargetAI = playerTypes?.[targetOwnerId]?.startsWith('ai') || false;
+        const attackRate = isTargetAI ? (weights?.ATTACK_AI_RATE_CITY ?? 1) : 1;
 
         const seenJunctionsForThisTarget = new Set<string>();
 
@@ -570,16 +578,16 @@ export function evaluateCityAttack(
 
                         // Attacker Gain (if they can reach/exceed opponent)
                         if (A_total >= O_count) {
-                            results[attackerId] = Math.max(results[attackerId], targetValue * pFactor);
+                            results[attackerId] = Math.max(results[attackerId], targetValue * pFactor * attackRate);
                         }
 
                         // Opponent Gain/Loss
                         if (A_total > O_count) {
                             const current = results[targetOwnerId] <= 0 ? results[targetOwnerId] : 0;
-                            results[targetOwnerId] = Math.min(current, -targetValue * pFactor);
+                            results[targetOwnerId] = Math.min(current, -targetValue * pFactor * attackRate);
                         } else if (O_count >= A_total) {
                             const current = results[targetOwnerId] >= 0 ? results[targetOwnerId] : 0;
-                            results[targetOwnerId] = Math.max(current, attackerCityValue * pFactor);
+                            results[targetOwnerId] = Math.max(current, attackerCityValue * pFactor * attackRate);
                         }
                     }
                 });
@@ -597,7 +605,9 @@ export function evaluateRoadAttack(
     lastMovePos: { x: number, y: number },
     attackerHand: GameState['hands'][PlayerId],
     deck: GameState['deck'],
-    context?: AITurnContext
+    context?: AITurnContext,
+    playerTypes?: Record<PlayerId, PlayerType>,
+    weights?: Partial<AIWeights>
 ): Record<PlayerId | 'neutral', number> {
     const results: Record<PlayerId | 'neutral', number> = { neutral: 0 };
     players.forEach(p => { results[p] = 0; });
@@ -647,6 +657,8 @@ export function evaluateRoadAttack(
         const targetOwnerWinner = targetWinners.find(w => w !== 'neutral' && w !== attackerId);
         if (!targetOwnerWinner) return;
         const targetOwnerId = Number(targetOwnerWinner);
+        const isTargetAI = playerTypes?.[targetOwnerId]?.startsWith('ai') || false;
+        const attackRate = isTargetAI ? (weights?.ATTACK_AI_RATE_ROAD ?? 1) : 1;
 
         const seenJunctionsForThisTarget = new Set<string>();
 
@@ -704,16 +716,16 @@ export function evaluateRoadAttack(
 
                         // Attacker Gain
                         if (A_total >= O_count) {
-                            results[attackerId] = Math.max(results[attackerId], targetValue * pFactor);
+                            results[attackerId] = Math.max(results[attackerId], targetValue * pFactor * attackRate);
                         }
 
                         // Opponent Gain/Loss
                         if (A_total > O_count) {
                             const current = results[targetOwnerId] <= 0 ? results[targetOwnerId] : 0;
-                            results[targetOwnerId] = Math.min(current, -targetValue * pFactor);
+                            results[targetOwnerId] = Math.min(current, -targetValue * pFactor * attackRate);
                         } else if (O_count >= A_total) {
                             const current = results[targetOwnerId] >= 0 ? results[targetOwnerId] : 0;
-                            results[targetOwnerId] = Math.max(current, attackerRoadValue * pFactor);
+                            results[targetOwnerId] = Math.max(current, attackerRoadValue * pFactor * attackRate);
                         }
                     }
                 });

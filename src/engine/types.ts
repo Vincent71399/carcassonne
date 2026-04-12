@@ -148,4 +148,7 @@ export interface AIWeights {
     EXTRA_POINT_ONE_SIDE_CITY_PLAYER: number;
     EXTRA_POINT_ONE_SIDE_CITY_NEUTRAL: number;
     FIELD_MULTIPLIER: number;
+    ATTACK_AI_RATE_CITY?: number;
+    ATTACK_AI_RATE_ROAD?: number;
+    ATTACK_AI_RATE_FIELD?: number;
 }

@@ -87,9 +87,9 @@ function calculateWeightedScore(
     // experimental.evaluateMeepleUsage is quite sophisticated about "weights".
     const meepleUsageScore = experimental.evaluateMeepleUsage(countBefore, countAfter, weights.MEEPLE_PLACEMENT, meepleType === 'large', weights.LARGER_MEEPLE_COST || 0);
 
-    const cityAttack = experimental.evaluateCityAttack(simBoard, aiPlayerId, players, { x, y }, state.hands[aiPlayerId], state.deck, context);
-    const roadAttack = experimental.evaluateRoadAttack(simBoard, aiPlayerId, players, { x, y }, state.hands[aiPlayerId], state.deck, context);
-    const fieldAttack = experimental.evaluateFieldAttack(simBoard, aiPlayerId, players, { x, y }, state.hands[aiPlayerId], state.deck, context);
+    const cityAttack = experimental.evaluateCityAttack(simBoard, aiPlayerId, players, { x, y }, state.hands[aiPlayerId], state.deck, context, state.playerTypes, weights);
+    const roadAttack = experimental.evaluateRoadAttack(simBoard, aiPlayerId, players, { x, y }, state.hands[aiPlayerId], state.deck, context, state.playerTypes, weights);
+    const fieldAttack = experimental.evaluateFieldAttack(simBoard, aiPlayerId, players, { x, y }, state.hands[aiPlayerId], state.deck, context, state.playerTypes, weights);
 
     const cityOpenEdgeDelta = experimental.evaluateCityOpenEdgeDelta(state.board, simBoard, x, y, players);
 
