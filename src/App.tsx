@@ -933,7 +933,7 @@ function App() {
         )
       }
       {/* Quit Button (placed here to overlay everything) */}
-      {!showGallery && gameState?.turnPhase !== 'GameOver' && (
+      {!showGallery && !showDeckViewer && gameState?.turnPhase !== 'GameOver' && (
         <button
         className="quit-button"
         style={{
@@ -970,7 +970,7 @@ function App() {
 
       {/* Fullscreen Button: Restricted to Android only */}
       {
-        !showGallery && gameState?.turnPhase !== 'GameOver' && !isFullscreen && !isIPad && !isIPhone && (
+        !showGallery && !showDeckViewer && gameState?.turnPhase !== 'GameOver' && !isFullscreen && !isIPad && !isIPhone && (
           <button
             onClick={(e) => {
               e.stopPropagation();

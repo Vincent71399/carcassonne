@@ -37,19 +37,20 @@ export const DeckViewer: React.FC<DeckViewerProps> = ({ deck, onClose }) => {
                 style={{
                     background: 'linear-gradient(160deg, #2a2a3e, #1c1c28)',
                     borderRadius: 20,
-                    padding: '24px 28px',
                     maxWidth: 720,
                     maxHeight: '80vh',
-                    overflowY: 'auto',
                     boxShadow: '0 12px 48px rgba(0,0,0,0.6)',
                     position: 'relative',
                     fontFamily: 'sans-serif',
                     color: '#eee',
                     width: '90vw',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    overflow: 'hidden',
                 }}
             >
                 {/* Header */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '24px 28px 16px', borderBottom: '1px solid rgba(255,255,255,0.1)', flexShrink: 0 }}>
                     <div>
                         <h2 style={{ margin: 0, color: '#ffd700', fontSize: 22 }}>🃏 {t('deckViewer.title')}</h2>
                         <p style={{ margin: '4px 0 0', color: '#aaa', fontSize: 13 }}>
@@ -70,6 +71,8 @@ export const DeckViewer: React.FC<DeckViewerProps> = ({ deck, onClose }) => {
                     display: 'grid',
                     gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))',
                     gap: 16,
+                    padding: '16px 28px 24px',
+                    overflowY: 'auto',
                 }}>
                     {ALL_TILE_TYPES.map(tileDef => {
                         const remaining = remainingByType[tileDef.typeId] ?? 0;
