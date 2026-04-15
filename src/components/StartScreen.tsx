@@ -245,7 +245,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame 
             </div>
 
             {/* User Profile (Top Left) */}
-            <div 
+            <div
                 onClick={() => {
                     if (isMobile && user) {
                         setIsProfileExpanded(!isProfileExpanded);
@@ -254,7 +254,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame 
                 style={{
                     position: 'absolute', top: '20px', left: '20px', zIndex: 100,
                     display: 'flex', alignItems: 'center', gap: '10px',
-                    background: 'rgba(255, 255, 255, 0.15)', 
+                    background: 'rgba(255, 255, 255, 0.15)',
                     padding: (isMobile && user && !isProfileExpanded) ? '8px' : '8px 16px',
                     borderRadius: '30px', backdropFilter: 'blur(10px)',
                     border: '1px solid rgba(255,255,255,0.2)',
@@ -277,12 +277,12 @@ export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame 
                                 <span style={{ fontSize: '14px', fontWeight: '600', whiteSpace: 'nowrap' }}>
                                     {user.displayName || user.email?.split('@')[0]}
                                 </span>
-                                <button 
-                                    onClick={(e) => { 
+                                <button
+                                    onClick={(e) => {
                                         e.stopPropagation();
-                                        setMode('local'); 
-                                        logout(); 
-                                    }} 
+                                        setMode('local');
+                                        logout();
+                                    }}
                                     style={{ marginLeft: 10, background: 'transparent', border: '1px solid rgba(255,255,255,0.4)', color: 'white', borderRadius: 15, padding: '4px 10px', fontSize: '12px', cursor: 'pointer', flexShrink: 0 }}
                                 >
                                     {t('auth.logout', 'Logout')}
@@ -300,24 +300,25 @@ export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame 
             <div style={{
                 background: 'rgba(255, 255, 255, 0.1)',
                 backdropFilter: 'blur(10px)',
-                padding: isMobile ? '20px' : '40px',
+                padding: isMobile ? '60px 12px 12px 12px' : '40px',
                 borderRadius: isMobile ? '0px' : '16px',
                 boxShadow: isMobile ? 'none' : '0 8px 32px rgba(0,0,0,0.3)',
                 width: isMobile ? '100vw' : '480px',
                 height: isMobile ? '100vh' : 'auto',
                 maxWidth: isMobile ? '100vw' : '480px',
                 maxHeight: isMobile ? '100vh' : 'auto',
-                display: 'flex', flexDirection: 'column', gap: '24px',
+                display: 'flex', flexDirection: 'column', gap: isMobile ? '10px' : '24px',
                 boxSizing: 'border-box',
-                justifyContent: isMobile ? 'center' : 'flex-start'
+                justifyContent: isMobile ? 'flex-start' : 'flex-start',
+                overflow: 'hidden'
             }}>
-                <h1 style={{ margin: 0, textAlign: 'center', fontSize: '36px', fontWeight: 'bold', textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}>
+                <h1 style={{ margin: 0, textAlign: 'center', fontSize: isMobile ? '26px' : '36px', fontWeight: 'bold', textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}>
                     {t('startScreen.title')}
                 </h1>
                 <div style={{
-                    marginTop: '-16px',
+                    marginTop: isMobile ? '-8px' : '-16px',
                     textAlign: 'center',
-                    fontSize: '14px',
+                    fontSize: isMobile ? '12px' : '14px',
                     fontWeight: 'bold',
                     color: '#f1c40f',
                     letterSpacing: '1px',
@@ -330,7 +331,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame 
                 <div style={{ display: 'flex', gap: '10px', background: 'rgba(0,0,0,0.2)', padding: '5px', borderRadius: '8px' }}>
                     <button
                         style={{
-                            flex: 1, padding: '10px', borderRadius: '6px', border: 'none',
+                            flex: 1, padding: isMobile ? '6px' : '10px', borderRadius: '6px', border: 'none',
                             background: mode === 'local' ? '#3498db' : 'transparent',
                             color: mode === 'local' ? 'white' : '#ccc',
                             cursor: 'pointer', fontWeight: mode === 'local' ? 'bold' : 'normal',
@@ -342,7 +343,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame 
                     </button>
                     <button
                         style={{
-                            flex: 1, padding: '10px', borderRadius: '6px', border: 'none',
+                            flex: 1, padding: isMobile ? '6px' : '10px', borderRadius: '6px', border: 'none',
                             background: mode === 'online' ? '#3498db' : 'transparent',
                             color: mode === 'online' ? 'white' : '#ccc',
                             cursor: 'pointer', fontWeight: mode === 'online' ? 'bold' : 'normal',
@@ -361,11 +362,10 @@ export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame 
                     <Lobby onStartGame={onStartGame} onBack={() => setMode('local')} useLargeMeeple={useLargeMeeple} />
                 )}
 
-                {/* Player Settings */}
                 {mode === 'local' && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? '8px' : '16px' }}>
                         <div>
-                            <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: '#eee' }}>{t('startScreen.numberOfPlayers')}</label>
+                            <label style={{ display: 'block', marginBottom: isMobile ? '4px' : '8px', fontSize: isMobile ? '13px' : '14px', color: '#eee' }}>{t('startScreen.numberOfPlayers')}</label>
                             <div style={{ display: 'flex', gap: '10px' }}>
                                 {[2, 3, 4].map(num => (
                                     <button
@@ -387,7 +387,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame 
                                             }
                                         }}
                                         style={{
-                                            flex: 1, padding: '10px', borderRadius: '6px',
+                                            flex: 1, padding: isMobile ? '6px' : '10px', borderRadius: '6px',
                                             border: num === playerCount ? '2px solid #3498db' : '1px solid #555',
                                             background: num === playerCount ? 'rgba(52, 152, 219, 0.2)' : 'rgba(0,0,0,0.2)',
                                             color: 'white',
@@ -401,8 +401,8 @@ export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame 
                             </div>
                         </div>
 
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                            <label style={{ display: 'block', fontSize: '14px', color: '#eee' }}>{t('startScreen.playerSettings')}</label>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? '4px' : '10px' }}>
+                            <label style={{ display: 'block', fontSize: isMobile ? '13px' : '14px', color: '#eee', marginBottom: isMobile ? '-2px' : '0' }}>{t('startScreen.playerSettings')}</label>
                             {Array.from({ length: playerCount }).map((_, idx) => {
                                 const pId = idx + 1;
                                 return (
@@ -411,13 +411,13 @@ export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame 
                                             value={types[pId]}
                                             onChange={(e) => handleTypeChange(pId, e.target.value as PlayerType)}
                                             style={{
-                                                padding: '12px',
+                                                padding: isMobile ? '6px' : '12px',
                                                 borderRadius: '6px',
                                                 border: '1px solid rgba(255,255,255,0.2)',
                                                 background: 'rgba(0,0,0,0.5)',
                                                 color: 'white',
                                                 outline: 'none',
-                                                fontSize: '14px',
+                                                fontSize: isMobile ? '12px' : '14px',
                                                 cursor: 'pointer',
                                             }}
                                         >
@@ -433,13 +433,13 @@ export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame 
                                             placeholder={t('startScreen.playerPlaceholder', { id: pId })}
                                             style={{
                                                 flex: 1,
-                                                padding: '12px',
+                                                padding: isMobile ? '6px' : '12px',
                                                 borderRadius: '6px',
                                                 border: '1px solid rgba(255,255,255,0.2)',
                                                 background: 'rgba(0,0,0,0.3)',
                                                 color: 'white',
                                                 outline: 'none',
-                                                fontSize: '16px',
+                                                fontSize: isMobile ? '13px' : '16px',
                                                 width: '100%'
                                             }}
                                         />
@@ -448,7 +448,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame 
                             })}
                         </div>
 
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '16px', background: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: isMobile ? '4px' : '16px', background: 'rgba(0,0,0,0.2)', padding: isMobile ? '6px' : '12px', borderRadius: '8px' }}>
                             <input
                                 type="checkbox"
                                 id="largeMeepleToggle"
@@ -456,7 +456,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame 
                                 onChange={(e) => setUseLargeMeeple(e.target.checked)}
                                 style={{ width: '18px', height: '18px', cursor: 'pointer' }}
                             />
-                            <label htmlFor="largeMeepleToggle" style={{ fontSize: '15px', color: '#eee', cursor: 'pointer', fontWeight: 'bold' }}>
+                            <label htmlFor="largeMeepleToggle" style={{ fontSize: isMobile ? '13px' : '15px', color: '#eee', cursor: 'pointer', fontWeight: 'bold' }}>
                                 {t('startScreen.largeMeepleOption', 'Enable Large Meeple')}
                             </label>
                         </div>
@@ -467,17 +467,17 @@ export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame 
                     <button
                         onClick={handleStart}
                         style={{
-                            padding: '16px',
+                            padding: isMobile ? '10px' : '16px',
                             borderRadius: '8px',
                             border: 'none',
                             background: '#2ecc71',
                             color: 'white',
-                            fontSize: '18px',
+                            fontSize: isMobile ? '15px' : '18px',
                             fontWeight: 'bold',
                             cursor: 'pointer',
                             boxShadow: '0 4px 15px rgba(46, 204, 113, 0.4)',
                             transition: 'transform 0.1s, box-shadow 0.1s',
-                            marginTop: '10px',
+                            marginTop: isMobile ? '2px' : '10px',
                             width: '100%'
                         }}
                         onMouseDown={e => e.currentTarget.style.transform = 'scale(0.98)'}
@@ -491,16 +491,16 @@ export const StartScreen: React.FC<StartScreenProps> = ({ isMobile, onStartGame 
                 <button
                     onClick={() => setShowTutorial(true)}
                     style={{
-                        padding: '12px',
+                        padding: isMobile ? '8px' : '12px',
                         borderRadius: '8px',
                         border: '1px solid rgba(255,255,255,0.3)',
                         background: 'rgba(255,255,255,0.1)',
                         color: 'white',
-                        fontSize: '14px',
+                        fontSize: isMobile ? '13px' : '14px',
                         fontWeight: '600',
                         cursor: 'pointer',
                         transition: 'all 0.2s',
-                        marginTop: '4px'
+                        marginTop: '0px'
                     }}
                     onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
                     onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
